@@ -5,6 +5,7 @@ import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
 import EditMedicalRecordForm from '../components/medical-records/EditMedicalRecordForm';
 import AddMedicalRecordForm from '../components/medical-records/AddMedicalRecordForm';
+import ViewMedicalRecord from '../components/medical-records/ViewMedicalRecord';
 import { useAuth } from '../context/AuthContext';
 import { medicalRecords, patients, doctors } from '../utils/mockData';
 import type { MedicalRecord } from '../types';
@@ -12,6 +13,7 @@ import type { MedicalRecord } from '../types';
 const MedicalRecordsPage: React.FC = () => {
   const { user } = useAuth();
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
+  const [viewingRecord, setViewingRecord] = useState<MedicalRecord | null>(null);
   const [isAddingRecord, setIsAddingRecord] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -35,6 +37,135 @@ const MedicalRecordsPage: React.FC = () => {
     const searchString = `${patient?.firstName} ${patient?.lastName} ${record.diagnosis}`.toLowerCase();
     return searchString.includes(searchTerm.toLowerCase());
   });
+
+  const renderContent = () => {
+    if (viewingRecord) {
+      return (
+        <ViewMedicalRecord
+          record={viewingRecord}
+          onClose={() => setViewingRecord(null)}
+        />
+      );
+    }
+
+    if (isAddingRecord) {
+      return (
+        <div className="p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Add New Medical Record</h2>
+          <AddMedicalRecordForm
+            onSave={handleAddRecord}
+            onCancel={() => setIsAddingRecord(false)}
+          />
+        </div>
+      );
+    }
+
+    if (editingRecord) {
+      return (
+        <div className="p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Medical Record</h2>
+          <EditMedicalRecordForm
+            record={editingRecord}
+            onSave={handleSaveRecord}
+            onCancel={() => setEditingRecord(null)}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Patient
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Doctor
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Diagnosis
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Last Updated
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredRecords.map((record) => {
+              const patient = patients.find(p => p.id === record.patientId);
+              const doctor = doctors.find(d => d.id === record.doctorId);
+              
+              return (
+                <tr key={record.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                        <span className="font-medium text-sm">
+                          {patient?.firstName[0]}{patient?.lastName[0]}
+                        </span>
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {patient?.firstName} {patient?.lastName}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          ID: {patient?.id}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">Dr. {doctor?.firstName} {doctor?.lastName}</div>
+                    <div className="text-sm text-gray-500">{doctor?.specialization}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900">{record.diagnosis}</div>
+                    <div className="text-sm text-gray-500">
+                      {record.symptoms.slice(0, 2).join(', ')}
+                      {record.symptoms.length > 2 && '...'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(record.date).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(record.lastUpdated || record.date).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mr-2"
+                      leftIcon={<Eye className="h-4 w-4" />}
+                      onClick={() => setViewingRecord(record)}
+                    >
+                      View
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Edit2 className="h-4 w-4" />}
+                      onClick={() => setEditingRecord(record)}
+                    >
+                      Edit
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,114 +209,7 @@ const MedicalRecordsPage: React.FC = () => {
             </div>
 
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
-              {isAddingRecord ? (
-                <div className="p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6">Add New Medical Record</h2>
-                  <AddMedicalRecordForm
-                    onSave={handleAddRecord}
-                    onCancel={() => setIsAddingRecord(false)}
-                  />
-                </div>
-              ) : editingRecord ? (
-                <div className="p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Medical Record</h2>
-                  <EditMedicalRecordForm
-                    record={editingRecord}
-                    onSave={handleSaveRecord}
-                    onCancel={() => setEditingRecord(null)}
-                  />
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Patient
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Doctor
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Diagnosis
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Last Updated
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredRecords.map((record) => {
-                        const patient = patients.find(p => p.id === record.patientId);
-                        const doctor = doctors.find(d => d.id === record.doctorId);
-                        
-                        return (
-                          <tr key={record.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                                  <span className="font-medium text-sm">
-                                    {patient?.firstName[0]}{patient?.lastName[0]}
-                                  </span>
-                                </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {patient?.firstName} {patient?.lastName}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    ID: {patient?.id}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">Dr. {doctor?.firstName} {doctor?.lastName}</div>
-                              <div className="text-sm text-gray-500">{doctor?.specialization}</div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm text-gray-900">{record.diagnosis}</div>
-                              <div className="text-sm text-gray-500">
-                                {record.symptoms.slice(0, 2).join(', ')}
-                                {record.symptoms.length > 2 && '...'}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(record.date).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(record.lastUpdated || record.date).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="mr-2"
-                                leftIcon={<Eye className="h-4 w-4" />}
-                              >
-                                View
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                leftIcon={<Edit2 className="h-4 w-4" />}
-                                onClick={() => setEditingRecord(record)}
-                              >
-                                Edit
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              {renderContent()}
             </div>
           </div>
         </main>
