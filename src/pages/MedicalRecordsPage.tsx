@@ -4,6 +4,7 @@ import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
 import EditMedicalRecordForm from '../components/medical-records/EditMedicalRecordForm';
+import AddMedicalRecordForm from '../components/medical-records/AddMedicalRecordForm';
 import { useAuth } from '../context/AuthContext';
 import { medicalRecords, patients, doctors } from '../utils/mockData';
 import type { MedicalRecord } from '../types';
@@ -11,6 +12,7 @@ import type { MedicalRecord } from '../types';
 const MedicalRecordsPage: React.FC = () => {
   const { user } = useAuth();
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
+  const [isAddingRecord, setIsAddingRecord] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleSaveRecord = (updatedRecord: MedicalRecord) => {
@@ -20,6 +22,12 @@ const MedicalRecordsPage: React.FC = () => {
       medicalRecords[recordIndex] = updatedRecord;
     }
     setEditingRecord(null);
+  };
+
+  const handleAddRecord = (newRecord: MedicalRecord) => {
+    // In a real app, this would make an API call to create the record
+    medicalRecords.push(newRecord);
+    setIsAddingRecord(false);
   };
 
   const filteredRecords = medicalRecords.filter(record => {
@@ -42,7 +50,10 @@ const MedicalRecordsPage: React.FC = () => {
                 <FileText className="h-8 w-8 text-blue-600" />
                 <h1 className="text-3xl font-bold text-gray-900">Medical Records</h1>
               </div>
-              <Button leftIcon={<Plus className="h-4 w-4" />}>
+              <Button 
+                leftIcon={<Plus className="h-4 w-4" />}
+                onClick={() => setIsAddingRecord(true)}
+              >
                 Add New Record
               </Button>
             </div>
@@ -67,7 +78,15 @@ const MedicalRecordsPage: React.FC = () => {
             </div>
 
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
-              {editingRecord ? (
+              {isAddingRecord ? (
+                <div className="p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6">Add New Medical Record</h2>
+                  <AddMedicalRecordForm
+                    onSave={handleAddRecord}
+                    onCancel={() => setIsAddingRecord(false)}
+                  />
+                </div>
+              ) : editingRecord ? (
                 <div className="p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Medical Record</h2>
                   <EditMedicalRecordForm
