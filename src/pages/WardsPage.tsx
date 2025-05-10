@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building, Plus, Search, Filter, Edit2, BedDouble, Users } from 'lucide-react';
+import { Building, Plus, Search, Filter, Edit2, BedDouble, Users, Activity, AlertTriangle } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
@@ -27,6 +27,15 @@ const WardsPage: React.FC = () => {
     ward.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Calculate dashboard metrics
+  const totalBeds = wards.reduce((sum, ward) => sum + ward.totalBeds, 0);
+  const totalAvailableBeds = wards.reduce((sum, ward) => sum + ward.availableBeds, 0);
+  const totalOccupiedBeds = totalBeds - totalAvailableBeds;
+  const overallOccupancyRate = Math.round((totalOccupiedBeds / totalBeds) * 100);
+  const criticalWards = wards.filter(ward => 
+    getOccupancyPercentage(ward.totalBeds, ward.availableBeds) >= 90
+  ).length;
+
   return (
     <div className="min-h-screen bg-gray-100">
       <Navbar />
@@ -44,6 +53,57 @@ const WardsPage: React.FC = () => {
                   Add New Ward
                 </Button>
               )}
+            </div>
+
+            {/* Dashboard Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <BedDouble className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total Beds</p>
+                    <p className="text-2xl font-bold text-gray-900">{totalBeds}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Users className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Available Beds</p>
+                    <p className="text-2xl font-bold text-gray-900">{totalAvailableBeds}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-amber-100 rounded-lg">
+                    <Activity className="h-6 w-6 text-amber-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Occupancy Rate</p>
+                    <p className="text-2xl font-bold text-gray-900">{overallOccupancyRate}%</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <AlertTriangle className="h-6 w-6 text-red-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Critical Capacity</p>
+                    <p className="text-2xl font-bold text-gray-900">{criticalWards} wards</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="mb-6 flex flex-col sm:flex-row gap-4">
