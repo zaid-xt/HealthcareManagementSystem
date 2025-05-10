@@ -28,13 +28,13 @@ const Sidebar: React.FC = () => {
     {
       title: 'Patients',
       icon: <Users className="w-5 h-5" />,
-      path: '/patients',
+      path: '/admin/patients',
       roles: ['admin', 'doctor', 'nurse']
     },
     {
       title: 'Doctors',
       icon: <Users className="w-5 h-5" />,
-      path: '/doctors',
+      path: '/admin/doctors',
       roles: ['admin']
     },
     {
