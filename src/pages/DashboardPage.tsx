@@ -73,13 +73,15 @@ const DashboardPage: React.FC = () => {
                   color="teal"
                 />
                 
-                <StatsCard 
-                  title="Available Beds"
-                  value={wards.reduce((total, ward) => total + ward.availableBeds, 0)}
-                  icon={<Building className="h-5 w-5" />}
-                  description={`Across ${wards.length} wards`}
-                  color="purple"
-                />
+                <div onClick={() => navigate('/wards')} className="cursor-pointer">
+                  <StatsCard 
+                    title="Available Beds"
+                    value={wards.reduce((total, ward) => total + ward.availableBeds, 0)}
+                    icon={<Building className="h-5 w-5" />}
+                    description={`Across ${wards.length} wards`}
+                    color="purple"
+                  />
+                </div>
                 
                 <StatsCard 
                   title="Pending Lab Results"
