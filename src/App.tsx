@@ -14,6 +14,7 @@ import PatientsPage from './pages/PatientsPage';
 import DoctorsPage from './pages/DoctorsPage';
 import WardsPage from './pages/WardsPage';
 import MedicalRecordsPage from './pages/MedicalRecordsPage';
+import MessagesPage from './pages/MessagesPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 
 const App: React.FC = () => {
@@ -85,6 +86,22 @@ const App: React.FC = () => {
                 requiredPermissions={['manage_medical_records']}
               >
                 <MedicalRecordsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'doctor', 'patient']}>
+                <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/wards"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'doctor', 'nurse']}>
+                <WardsPage />
               </ProtectedRoute>
             }
           />

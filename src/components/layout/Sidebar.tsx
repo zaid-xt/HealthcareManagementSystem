@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Building, FileText, FlaskRound as Flask, Pill, Settings, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Building, FileText, FlaskRound as Flask, Pill, Settings, ChevronRight, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface SidebarItem {
@@ -24,6 +24,11 @@ const Sidebar: React.FC = () => {
       title: 'Appointments',
       icon: <Calendar className="w-5 h-5" />,
       path: '/appointments'
+    },
+    {
+      title: 'Messages',
+      icon: <MessageSquare className="w-5 h-5" />,
+      path: '/messages'
     },
     {
       title: 'Patients',
