@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Plus, Search, Filter, Edit2, Eye, X } from 'lucide-react';
+import { FileText, Plus, Search, Filter, Edit2, Eye, X, Trash2 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
@@ -23,6 +23,7 @@ const MedicalRecordsPage: React.FC = () => {
     doctorId: '',
     diagnosis: ''
   });
+  const [recordToDelete, setRecordToDelete] = useState<MedicalRecord | null>(null);
 
   const handleSaveRecord = (updatedRecord: MedicalRecord) => {
     // In a real app, this would make an API call to update the record
@@ -37,6 +38,17 @@ const MedicalRecordsPage: React.FC = () => {
     // In a real app, this would make an API call to create the record
     medicalRecords.push(newRecord);
     setIsAddingRecord(false);
+  };
+
+  const handleDeleteRecord = () => {
+    if (!recordToDelete) return;
+    
+    // In a real app, this would make an API call to delete the record
+    const recordIndex = medicalRecords.findIndex(r => r.id === recordToDelete.id);
+    if (recordIndex !== -1) {
+      medicalRecords.splice(recordIndex, 1);
+    }
+    setRecordToDelete(null);
   };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -184,10 +196,20 @@ const MedicalRecordsPage: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="mr-2"
                       leftIcon={<Edit2 className="h-4 w-4" />}
                       onClick={() => setEditingRecord(record)}
                     >
                       Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:bg-red-50"
+                      leftIcon={<Trash2 className="h-4 w-4" />}
+                      onClick={() => setRecordToDelete(record)}
+                    >
+                      Delete
                     </Button>
                   </td>
                 </tr>
@@ -317,6 +339,34 @@ const MedicalRecordsPage: React.FC = () => {
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
               {renderContent()}
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {recordToDelete && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                    Delete Medical Record
+                  </h3>
+                  <p className="text-gray-500 mb-6">
+                    Are you sure you want to delete this medical record? This action cannot be undone.
+                  </p>
+                  <div className="flex justify-end space-x-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setRecordToDelete(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={handleDeleteRecord}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>
