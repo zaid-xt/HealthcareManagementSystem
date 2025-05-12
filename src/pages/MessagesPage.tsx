@@ -25,7 +25,7 @@ const mockMessages: Message[] = [
     senderId: 'user4', // patient
     receiverId: 'user2', // doctor
     subject: 'Question about Medication',
-    content: 'I've been experiencing some side effects from the new medication.',
+    content: 'I\'ve been experiencing some side effects from the new medication.',
     timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
     read: true
   }
