@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowLeft, Paperclip, Clock, User } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Paperclip, Clock, User, Reply } from 'lucide-react';
 import Button from '../ui/Button';
 import { Message } from '../../types';
 import { users } from '../../utils/mockData';
@@ -7,11 +7,23 @@ import { users } from '../../utils/mockData';
 interface ViewMessageProps {
   message: Message;
   onBack: () => void;
+  onReply: (content: string) => void;
 }
 
-const ViewMessage: React.FC<ViewMessageProps> = ({ message, onBack }) => {
+const ViewMessage: React.FC<ViewMessageProps> = ({ message, onBack, onReply }) => {
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
   const sender = users.find(user => user.id === message.senderId);
   const receiver = users.find(user => user.id === message.receiverId);
+
+  const handleSubmitReply = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (replyContent.trim()) {
+      onReply(replyContent);
+      setIsReplying(false);
+      setReplyContent('');
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -76,6 +88,46 @@ const ViewMessage: React.FC<ViewMessageProps> = ({ message, onBack }) => {
             </div>
           </div>
         )}
+
+        <div className="border-t pt-4">
+          {!isReplying ? (
+            <Button
+              onClick={() => setIsReplying(true)}
+              variant="outline"
+              leftIcon={<Reply className="h-4 w-4" />}
+            >
+              Reply
+            </Button>
+          ) : (
+            <form onSubmit={handleSubmitReply} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Your Reply
+                </label>
+                <textarea
+                  value={replyContent}
+                  onChange={(e) => setReplyContent(e.target.value)}
+                  rows={4}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Type your reply here..."
+                  required
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsReplying(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Send Reply
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

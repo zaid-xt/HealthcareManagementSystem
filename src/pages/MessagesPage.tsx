@@ -81,6 +81,23 @@ const MessagesPage: React.FC = () => {
     setSelectedMessage(message);
   };
 
+  const handleReply = (content: string) => {
+    if (selectedMessage && user) {
+      const replyMessage: Message = {
+        id: `msg${Date.now()}`,
+        senderId: user.id,
+        receiverId: selectedMessage.senderId,
+        subject: `Re: ${selectedMessage.subject}`,
+        content,
+        timestamp: new Date().toISOString(),
+        read: false
+      };
+      
+      setMessages(prev => [replyMessage, ...prev]);
+      setSelectedMessage(null);
+    }
+  };
+
   const renderContent = () => {
     if (isComposing) {
       return (
@@ -100,6 +117,7 @@ const MessagesPage: React.FC = () => {
         <ViewMessage
           message={selectedMessage}
           onBack={() => setSelectedMessage(null)}
+          onReply={handleReply}
         />
       );
     }
