@@ -57,8 +57,8 @@ const Sidebar: React.FC = () => {
     {
       title: 'Lab Results',
       icon: <Flask className="w-5 h-5" />,
-      path: '/labs',
-      roles: ['admin', 'doctor', 'nurse']
+      path: '/lab-results',
+      roles: ['admin', 'doctor']
     },
     {
       title: 'Prescriptions',
