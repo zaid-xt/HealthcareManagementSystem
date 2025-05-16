@@ -342,3 +342,40 @@ export const orderLines: OrderLine[] = [
     instructions: 'Take at onset of migraine. Do not exceed 9 tablets per month'
   }
 ];
+
+// Mock messages data
+export const messages: Message[] = [
+  {
+    id: 'msg1',
+    senderId: 'user2', // doctor
+    receiverId: 'user4', // patient
+    subject: 'Follow-up Appointment Results',
+    content: 'Your recent test results look good. Keep up with the prescribed medication.',
+    timestamp: new Date().toISOString(),
+    read: false,
+    status: 'sent',
+    priority: 'normal'
+  },
+  {
+    id: 'msg2',
+    senderId: 'user4', // patient
+    receiverId: 'user2', // doctor
+    subject: 'Question about Medication',
+    content: 'I\'ve been experiencing some side effects from the new medication.',
+    timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+    read: true,
+    status: 'read',
+    priority: 'urgent'
+  },
+  {
+    id: 'msg3',
+    senderId: 'user2', // doctor
+    receiverId: 'user4', // patient
+    subject: 'Urgent: Lab Results Review',
+    content: 'Please schedule an appointment to discuss your recent lab results.',
+    timestamp: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+    read: true,
+    status: 'archived',
+    priority: 'urgent'
+  }
+];
