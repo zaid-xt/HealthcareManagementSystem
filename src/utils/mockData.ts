@@ -379,3 +379,7 @@ export const messages: Message[] = [
     priority: 'urgent'
   }
 ];
+
+export { wards, admittances }
+
+export { doctors }
