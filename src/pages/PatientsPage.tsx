@@ -12,6 +12,8 @@ const PatientsPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const isDoctor = user?.role === 'doctor';
+  const canManagePatients = isAdmin || isDoctor;
+  
   const [isAddingPatient, setIsAddingPatient] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
@@ -52,6 +54,23 @@ const PatientsPage: React.FC = () => {
     return searchString.includes(searchTerm.toLowerCase());
   });
 
+  if (!canManagePatients) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Navbar />
+        <div className="flex">
+          <Sidebar />
+          <main className="flex-1 p-8">
+            <div className="max-w-7xl mx-auto text-center py-12">
+              <h2 className="text-2xl font-semibold text-gray-900">Access Restricted</h2>
+              <p className="mt-2 text-gray-600">Only administrators and doctors can view this page.</p>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       <Navbar />
@@ -64,7 +83,7 @@ const PatientsPage: React.FC = () => {
                 <User className="h-8 w-8 text-blue-600" />
                 <h1 className="text-3xl font-bold text-gray-900">Patients</h1>
               </div>
-              {(isAdmin || isDoctor) && (
+              {canManagePatients && (
                 <Button 
                   leftIcon={<Plus className="h-4 w-4" />}
                   onClick={() => setIsAddingPatient(true)}
@@ -85,6 +104,7 @@ const PatientsPage: React.FC = () => {
                     setIsAddingPatient(false);
                     setEditingPatient(null);
                   }}
+                  initialData={editingPatient}
                 />
               </div>
             ) : (
@@ -175,7 +195,7 @@ const PatientsPage: React.FC = () => {
                               </td>
                             )}
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              {(isDoctor || isAdmin) && (
+                              {canManagePatients && (
                                 <>
                                   <Button
                                     variant="outline"
