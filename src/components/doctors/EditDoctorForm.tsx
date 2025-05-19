@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Save, X } from 'lucide-react';
+import { Save, X, Plus, Trash2 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import type { Doctor } from '../../types';
@@ -109,6 +109,23 @@ const EditDoctorForm: React.FC<EditDoctorFormProps> = ({
     setFormData(prev => ({ ...prev, availability: newAvailability }));
   };
 
+  const addNewSchedule = () => {
+    setFormData(prev => ({
+      ...prev,
+      availability: [
+        ...prev.availability,
+        { day: 'Monday', startTime: '09:00', endTime: '17:00' }
+      ]
+    }));
+  };
+
+  const removeSchedule = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      availability: prev.availability.filter((_, i) => i !== index)
+    }));
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -171,47 +188,78 @@ const EditDoctorForm: React.FC<EditDoctorFormProps> = ({
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900">Availability</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900">Availability</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addNewSchedule}
+            leftIcon={<Plus className="h-4 w-4" />}
+          >
+            Add Schedule
+          </Button>
+        </div>
+        
         {formData.availability.map((schedule, index) => (
-          <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Day</label>
-              <select
-                value={schedule.day}
-                onChange={(e) => handleAvailabilityChange(index, 'day', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              >
-                <option value="Monday">Monday</option>
-                <option value="Tuesday">Tuesday</option>
-                <option value="Wednesday">Wednesday</option>
-                <option value="Thursday">Thursday</option>
-                <option value="Friday">Friday</option>
-                <option value="Saturday">Saturday</option>
-                <option value="Sunday">Sunday</option>
-              </select>
+          <div key={index} className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Day</label>
+                <select
+                  value={schedule.day}
+                  onChange={(e) => handleAvailabilityChange(index, 'day', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                >
+                  <option value="Monday">Monday</option>
+                  <option value="Tuesday">Tuesday</option>
+                  <option value="Wednesday">Wednesday</option>
+                  <option value="Thursday">Thursday</option>
+                  <option value="Friday">Friday</option>
+                  <option value="Saturday">Saturday</option>
+                  <option value="Sunday">Sunday</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                <input
+                  type="time"
+                  value={schedule.startTime}
+                  onChange={(e) => handleAvailabilityChange(index, 'startTime', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                <input
+                  type="time"
+                  value={schedule.endTime}
+                  onChange={(e) => handleAvailabilityChange(index, 'endTime', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-              <input
-                type="time"
-                value={schedule.startTime}
-                onChange={(e) => handleAvailabilityChange(index, 'startTime', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-              <input
-                type="time"
-                value={schedule.endTime}
-                onChange={(e) => handleAvailabilityChange(index, 'endTime', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => removeSchedule(index)}
+              className="text-red-600 hover:bg-red-50 self-end mb-1"
+              leftIcon={<Trash2 className="h-4 w-4" />}
+            >
+              Remove
+            </Button>
           </div>
         ))}
+
+        {formData.availability.length === 0 && (
+          <p className="text-center text-gray-500 py-4">
+            No availability schedule set. Click "Add Schedule" to add working hours.
+          </p>
+        )}
       </div>
 
       <div className="flex justify-end space-x-4">
