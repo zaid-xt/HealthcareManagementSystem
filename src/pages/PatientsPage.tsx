@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Search, Filter, FileText, Plus } from 'lucide-react';
+import { User, Search, Filter, FileText, Plus, Edit2, Trash2, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
@@ -14,6 +14,13 @@ const PatientsPage: React.FC = () => {
   const isDoctor = user?.role === 'doctor';
   const [isAddingPatient, setIsAddingPatient] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    gender: '',
+    bloodType: '',
+    ageRange: ''
+  });
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
 
   const handleAddPatient = (patientData: Omit<Patient, 'id'>) => {
     // In a real app, this would make an API call
@@ -25,9 +32,69 @@ const PatientsPage: React.FC = () => {
     setIsAddingPatient(false);
   };
 
+  const handleDeletePatient = () => {
+    if (!patientToDelete) return;
+    
+    // In a real app, this would make an API call
+    const patientIndex = patients.findIndex(p => p.id === patientToDelete.id);
+    if (patientIndex !== -1) {
+      patients.splice(patientIndex, 1);
+    }
+    setPatientToDelete(null);
+  };
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      gender: '',
+      bloodType: '',
+      ageRange: ''
+    });
+    setShowFilters(false);
+  };
+
+  const calculateAge = (dateOfBirth: string) => {
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   const filteredPatients = patients.filter(patient => {
     const searchString = `${patient.firstName} ${patient.lastName} ${patient.email}`.toLowerCase();
-    return searchString.includes(searchTerm.toLowerCase());
+    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
+    
+    const matchesGender = !filters.gender || patient.gender === filters.gender;
+    const matchesBloodType = !filters.bloodType || patient.bloodType === filters.bloodType;
+    
+    let matchesAgeRange = true;
+    if (filters.ageRange) {
+      const age = calculateAge(patient.dateOfBirth);
+      switch (filters.ageRange) {
+        case '0-18':
+          matchesAgeRange = age <= 18;
+          break;
+        case '19-30':
+          matchesAgeRange = age > 18 && age <= 30;
+          break;
+        case '31-50':
+          matchesAgeRange = age > 30 && age <= 50;
+          break;
+        case '51+':
+          matchesAgeRange = age > 50;
+          break;
+      }
+    }
+    
+    return matchesSearch && matchesGender && matchesBloodType && matchesAgeRange;
   });
 
   return (
@@ -73,16 +140,89 @@ const PatientsPage: React.FC = () => {
                       className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <div className="flex gap-4">
-                    <Button
-                      variant="outline"
-                      leftIcon={<Filter className="h-4 w-4" />}
-                    >
-                      Filter
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    leftIcon={<Filter className="h-4 w-4" />}
+                    onClick={() => setShowFilters(!showFilters)}
+                  >
+                    Filter
+                  </Button>
                 </div>
-                
+
+                {showFilters && (
+                  <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Gender
+                        </label>
+                        <select
+                          name="gender"
+                          value={filters.gender}
+                          onChange={handleFilterChange}
+                          className="w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">All</option>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Blood Type
+                        </label>
+                        <select
+                          name="bloodType"
+                          value={filters.bloodType}
+                          onChange={handleFilterChange}
+                          className="w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">All</option>
+                          <option value="A+">A+</option>
+                          <option value="A-">A-</option>
+                          <option value="B+">B+</option>
+                          <option value="B-">B-</option>
+                          <option value="AB+">AB+</option>
+                          <option value="AB-">AB-</option>
+                          <option value="O+">O+</option>
+                          <option value="O-">O-</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Age Range
+                        </label>
+                        <select
+                          name="ageRange"
+                          value={filters.ageRange}
+                          onChange={handleFilterChange}
+                          className="w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">All</option>
+                          <option value="0-18">0-18 years</option>
+                          <option value="19-30">19-30 years</option>
+                          <option value="31-50">31-50 years</option>
+                          <option value="51+">51+ years</option>
+                        </select>
+                      </div>
+                      
+                      <div className="flex items-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={resetFilters}
+                          fullWidth
+                        >
+                          Reset Filters
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-white shadow-md rounded-lg overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -97,11 +237,9 @@ const PatientsPage: React.FC = () => {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Contact
                           </th>
-                          {isAdmin && (
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Login Details
-                            </th>
-                          )}
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Emergency Contact
+                          </th>
                           <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Actions
                           </th>
@@ -129,25 +267,42 @@ const PatientsPage: React.FC = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">
+                                Age: {calculateAge(patient.dateOfBirth)} years
+                              </div>
+                              <div className="text-sm text-gray-500">
                                 Blood Type: {patient.bloodType || 'N/A'}
                               </div>
                               <div className="text-sm text-gray-500">
-                                DOB: {new Date(patient.dateOfBirth).toLocaleDateString()}
+                                Gender: {patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{patient.contactNumber}</div>
-                              <div className="text-sm text-gray-500">{patient.address}</div>
+                              <div className="text-sm text-gray-500">{patient.email}</div>
+                              <div className="text-sm text-gray-500 truncate max-w-xs">
+                                {patient.address}
+                              </div>
                             </td>
-                            {isAdmin && (
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900">{patient.email}</div>
-                                {patient.userId && (
-                                  <div className="text-sm text-gray-500">Has account</div>
-                                )}
-                              </td>
-                            )}
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {patient.emergencyContact.name}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {patient.emergencyContact.relation}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {patient.emergencyContact.contactNumber}
+                              </div>
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="mr-2"
+                                leftIcon={<Eye className="h-4 w-4" />}
+                              >
+                                View
+                              </Button>
                               {isDoctor && (
                                 <Button
                                   variant="outline"
@@ -155,23 +310,29 @@ const PatientsPage: React.FC = () => {
                                   className="mr-2"
                                   leftIcon={<FileText className="h-4 w-4" />}
                                 >
-                                  Medical Records
+                                  Records
                                 </Button>
                               )}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="mr-2"
-                              >
-                                View Details
-                              </Button>
                               {isAdmin && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  Edit
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mr-2"
+                                    leftIcon={<Edit2 className="h-4 w-4" />}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-red-600 hover:bg-red-50"
+                                    leftIcon={<Trash2 className="h-4 w-4" />}
+                                    onClick={() => setPatientToDelete(patient)}
+                                  >
+                                    Delete
+                                  </Button>
+                                </>
                               )}
                             </td>
                           </tr>
@@ -179,43 +340,35 @@ const PatientsPage: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
-                  
-                  <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 flex justify-between sm:hidden">
-                        <Button variant="outline" size="sm">Previous</Button>
-                        <Button variant="outline" size="sm">Next</Button>
-                      </div>
-                      <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                        <div>
-                          <p className="text-sm text-gray-700">
-                            Showing <span className="font-medium">1</span> to{' '}
-                            <span className="font-medium">{filteredPatients.length}</span> of{' '}
-                            <span className="font-medium">{filteredPatients.length}</span> results
-                          </p>
-                        </div>
-                        <div>
-                          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="rounded-l-md"
-                            >
-                              Previous
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="rounded-r-md"
-                            >
-                              Next
-                            </Button>
-                          </nav>
-                        </div>
+                </div>
+
+                {/* Delete Confirmation Modal */}
+                {patientToDelete && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">
+                        Delete Patient Record
+                      </h3>
+                      <p className="text-gray-500 mb-6">
+                        Are you sure you want to delete {patientToDelete.firstName} {patientToDelete.lastName}'s record? This action cannot be undone.
+                      </p>
+                      <div className="flex justify-end space-x-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => setPatientToDelete(null)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="danger"
+                          onClick={handleDeletePatient}
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </>
             )}
           </div>
