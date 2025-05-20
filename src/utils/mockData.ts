@@ -40,7 +40,9 @@ export const users: User[] = [
 export const patients: Patient[] = [
   {
     id: 'patient1',
+    patientId: 'P001',
     userId: 'user4',
+    doctorId: 'doctor1',
     firstName: 'Jane',
     lastName: 'Smith',
     dateOfBirth: '1985-06-15',
@@ -49,6 +51,7 @@ export const patients: Patient[] = [
     contactNumber: '555-1234',
     email: 'jane.smith@example.com',
     address: '123 Main St, Anytown, CA 94321',
+    status: 'active',
     emergencyContact: {
       name: 'John Smith',
       relation: 'Husband',
@@ -62,6 +65,8 @@ export const patients: Patient[] = [
   },
   {
     id: 'patient2',
+    patientId: 'P002',
+    doctorId: 'doctor2',
     firstName: 'Michael',
     lastName: 'Johnson',
     dateOfBirth: '1972-03-21',
@@ -70,6 +75,7 @@ export const patients: Patient[] = [
     contactNumber: '555-8765',
     email: 'michael.johnson@example.com',
     address: '456 Oak Ave, Somecity, CA 94322',
+    status: 'active',
     emergencyContact: {
       name: 'Lisa Johnson',
       relation: 'Wife',
@@ -78,6 +84,8 @@ export const patients: Patient[] = [
   },
   {
     id: 'patient3',
+    patientId: 'P003',
+    doctorId: 'doctor1',
     firstName: 'Emily',
     lastName: 'Chen',
     dateOfBirth: '1990-11-08',
@@ -86,6 +94,7 @@ export const patients: Patient[] = [
     contactNumber: '555-2468',
     email: 'emily.chen@example.com',
     address: '789 Pine St, Othertown, CA 94323',
+    status: 'active',
     emergencyContact: {
       name: 'Wei Chen',
       relation: 'Father',

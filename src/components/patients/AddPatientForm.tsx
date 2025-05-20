@@ -11,6 +11,7 @@ interface AddPatientFormProps {
 
 const AddPatientForm: React.FC<AddPatientFormProps> = ({ onSave, onCancel }) => {
   const [formData, setFormData] = useState({
+    patientId: `P${String(Date.now()).slice(-3)}`,
     firstName: '',
     lastName: '',
     dateOfBirth: '',
@@ -19,6 +20,7 @@ const AddPatientForm: React.FC<AddPatientFormProps> = ({ onSave, onCancel }) => 
     contactNumber: '',
     email: '',
     address: '',
+    status: 'active' as Patient['status'],
     emergencyContact: {
       name: '',
       relation: '',
@@ -108,6 +110,14 @@ const AddPatientForm: React.FC<AddPatientFormProps> = ({ onSave, onCancel }) => 
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Input
+          label="Patient ID"
+          value={formData.patientId}
+          onChange={(e) => setFormData(prev => ({ ...prev, patientId: e.target.value }))}
+          required
+          disabled
+        />
+        
+        <Input
           label="First Name"
           value={formData.firstName}
           onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
@@ -180,6 +190,20 @@ const AddPatientForm: React.FC<AddPatientFormProps> = ({ onSave, onCancel }) => 
           error={errors.email}
           required
         />
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <select
+            value={formData.status}
+            onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as Patient['status'] }))}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="pending">Pending</option>
+            <option value="discharged">Discharged</option>
+          </select>
+        </div>
       </div>
       
       <div>
