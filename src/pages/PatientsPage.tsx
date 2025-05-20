@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Search, Filter, FileText, Plus } from 'lucide-react';
+import { User, Search, Filter, FileText, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
@@ -12,8 +12,12 @@ const PatientsPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const isDoctor = user?.role === 'doctor';
+  const canManagePatients = isAdmin || isDoctor;
+  
   const [isAddingPatient, setIsAddingPatient] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
+  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
 
   const handleAddPatient = (patientData: Omit<Patient, 'id'>) => {
     // In a real app, this would make an API call
@@ -25,10 +29,47 @@ const PatientsPage: React.FC = () => {
     setIsAddingPatient(false);
   };
 
+  const handleDeletePatient = () => {
+    if (!patientToDelete) return;
+    
+    // In a real app, this would make an API call
+    const patientIndex = patients.findIndex(p => p.id === patientToDelete.id);
+    if (patientIndex !== -1) {
+      patients.splice(patientIndex, 1);
+    }
+    setPatientToDelete(null);
+  };
+
+  const handleUpdatePatient = (updatedPatient: Patient) => {
+    // In a real app, this would make an API call
+    const patientIndex = patients.findIndex(p => p.id === updatedPatient.id);
+    if (patientIndex !== -1) {
+      patients[patientIndex] = updatedPatient;
+    }
+    setEditingPatient(null);
+  };
+
   const filteredPatients = patients.filter(patient => {
     const searchString = `${patient.firstName} ${patient.lastName} ${patient.email}`.toLowerCase();
     return searchString.includes(searchTerm.toLowerCase());
   });
+
+  if (!canManagePatients) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Navbar />
+        <div className="flex">
+          <Sidebar />
+          <main className="flex-1 p-8">
+            <div className="max-w-7xl mx-auto text-center py-12">
+              <h2 className="text-2xl font-semibold text-gray-900">Access Restricted</h2>
+              <p className="mt-2 text-gray-600">Only administrators and doctors can view this page.</p>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -42,7 +83,7 @@ const PatientsPage: React.FC = () => {
                 <User className="h-8 w-8 text-blue-600" />
                 <h1 className="text-3xl font-bold text-gray-900">Patients</h1>
               </div>
-              {(isAdmin || isDoctor) && (
+              {canManagePatients && (
                 <Button 
                   leftIcon={<Plus className="h-4 w-4" />}
                   onClick={() => setIsAddingPatient(true)}
@@ -52,12 +93,18 @@ const PatientsPage: React.FC = () => {
               )}
             </div>
 
-            {isAddingPatient ? (
+            {isAddingPatient || editingPatient ? (
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">Add New Patient</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                  {editingPatient ? 'Edit Patient' : 'Add New Patient'}
+                </h2>
                 <AddPatientForm
-                  onSave={handleAddPatient}
-                  onCancel={() => setIsAddingPatient(false)}
+                  onSave={editingPatient ? handleUpdatePatient : handleAddPatient}
+                  onCancel={() => {
+                    setIsAddingPatient(false);
+                    setEditingPatient(null);
+                  }}
+                  initialData={editingPatient}
                 />
               </div>
             ) : (
@@ -148,30 +195,35 @@ const PatientsPage: React.FC = () => {
                               </td>
                             )}
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              {isDoctor && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="mr-2"
-                                  leftIcon={<FileText className="h-4 w-4" />}
-                                >
-                                  Medical Records
-                                </Button>
-                              )}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="mr-2"
-                              >
-                                View Details
-                              </Button>
-                              {isAdmin && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  Edit
-                                </Button>
+                              {canManagePatients && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mr-2"
+                                    leftIcon={<FileText className="h-4 w-4" />}
+                                  >
+                                    Medical Records
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mr-2"
+                                    leftIcon={<Edit2 className="h-4 w-4" />}
+                                    onClick={() => setEditingPatient(patient)}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-red-600 hover:bg-red-50"
+                                    leftIcon={<Trash2 className="h-4 w-4" />}
+                                    onClick={() => setPatientToDelete(patient)}
+                                  >
+                                    Delete
+                                  </Button>
+                                </>
                               )}
                             </td>
                           </tr>
@@ -217,6 +269,34 @@ const PatientsPage: React.FC = () => {
                   </div>
                 </div>
               </>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {patientToDelete && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                    Delete Patient
+                  </h3>
+                  <p className="text-gray-500 mb-6">
+                    Are you sure you want to delete {patientToDelete.firstName} {patientToDelete.lastName}? This action cannot be undone.
+                  </p>
+                  <div className="flex justify-end space-x-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setPatientToDelete(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={handleDeletePatient}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </main>
