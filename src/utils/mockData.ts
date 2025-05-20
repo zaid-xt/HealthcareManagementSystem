@@ -351,3 +351,13 @@ export const orderLines: OrderLine[] = [
     instructions: 'Take at onset of migraine. Do not exceed 9 tablets per month'
   }
 ];
+
+export { doctors }
+
+export { patients }
+
+export { users }
+
+export { appointments, wards, labs, prescriptions }
+
+export { medicalRecords }
