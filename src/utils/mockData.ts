@@ -155,7 +155,8 @@ export const appointments: Appointment[] = [
     endTime: '10:30',
     status: 'scheduled',
     type: 'regular',
-    notes: 'Follow-up on recent blood tests'
+    notes: 'Follow-up on recent blood tests',
+    createdBy: 'user1'
   },
   {
     id: 'appt2',
@@ -166,7 +167,8 @@ export const appointments: Appointment[] = [
     endTime: '11:30',
     status: 'scheduled',
     type: 'follow-up',
-    notes: 'Review of MRI results'
+    notes: 'Review of MRI results',
+    createdBy: 'user1'
   },
   {
     id: 'appt3',
@@ -176,7 +178,8 @@ export const appointments: Appointment[] = [
     startTime: '09:30',
     endTime: '10:00',
     status: 'completed',
-    type: 'regular'
+    type: 'regular',
+    createdBy: 'user1'
   }
 ];
 
@@ -188,7 +191,8 @@ export const wards: Ward[] = [
     type: 'general',
     floorNumber: 2,
     totalBeds: 20,
-    availableBeds: 7
+    availableBeds: 7,
+    managedBy: 'user1'
   },
   {
     id: 'ward2',
@@ -196,7 +200,8 @@ export const wards: Ward[] = [
     type: 'icu',
     floorNumber: 3,
     totalBeds: 10,
-    availableBeds: 2
+    availableBeds: 2,
+    managedBy: 'user1'
   },
   {
     id: 'ward3',
@@ -204,7 +209,8 @@ export const wards: Ward[] = [
     type: 'maternity',
     floorNumber: 4,
     totalBeds: 15,
-    availableBeds: 6
+    availableBeds: 6,
+    managedBy: 'user1'
   }
 ];
 
@@ -218,7 +224,8 @@ export const admittances: Admittance[] = [
     admissionDate: '2025-06-10',
     status: 'admitted',
     doctorId: 'doctor1',
-    reason: 'Post-operative recovery'
+    reason: 'Post-operative recovery',
+    authorizedBy: 'user1'
   },
   {
     id: 'adm2',
@@ -228,7 +235,8 @@ export const admittances: Admittance[] = [
     admissionDate: '2025-06-12',
     status: 'admitted',
     doctorId: 'doctor2',
-    reason: 'Stroke monitoring'
+    reason: 'Stroke monitoring',
+    authorizedBy: 'user1'
   }
 ];
 
@@ -242,7 +250,9 @@ export const medicalRecords: MedicalRecord[] = [
     diagnosis: 'Hypertension',
     symptoms: ['Headache', 'Dizziness', 'Fatigue'],
     treatment: 'Prescribed Lisinopril 10mg daily',
-    notes: 'Patient to monitor blood pressure daily and return in 2 weeks'
+    notes: 'Patient to monitor blood pressure daily and return in 2 weeks',
+    lastUpdated: '2025-06-01',
+    lastUpdatedBy: 'doctor1'
   },
   {
     id: 'rec2',
@@ -252,7 +262,9 @@ export const medicalRecords: MedicalRecord[] = [
     diagnosis: 'Migraines',
     symptoms: ['Severe headache', 'Visual aura', 'Nausea'],
     treatment: 'Sumatriptan as needed for acute attacks',
-    notes: 'Recommended lifestyle modifications to identify triggers'
+    notes: 'Recommended lifestyle modifications to identify triggers',
+    lastUpdated: '2025-06-05',
+    lastUpdatedBy: 'doctor2'
   }
 ];
 
@@ -265,7 +277,8 @@ export const labs: Lab[] = [
     testType: 'Complete Blood Count',
     date: '2025-06-05',
     results: 'WBC: 7.5, RBC: 4.8, Hemoglobin: 14.2, Hematocrit: 42%',
-    status: 'completed'
+    status: 'completed',
+    requestedBy: 'doctor1'
   },
   {
     id: 'lab2',
@@ -273,7 +286,8 @@ export const labs: Lab[] = [
     doctorId: 'doctor2',
     testType: 'MRI Brain',
     date: '2025-06-14',
-    status: 'pending'
+    status: 'pending',
+    requestedBy: 'doctor2'
   }
 ];
 
@@ -286,7 +300,9 @@ export const medicines: Medicine[] = [
     dosageForm: 'tablet',
     manufacturer: 'PharmaCorp',
     availableQuantity: 500,
-    unitPrice: 0.85
+    unitPrice: 0.85,
+    expiryDate: '2025-12-31',
+    lastUpdatedBy: 'user1'
   },
   {
     id: 'med2',
@@ -295,7 +311,9 @@ export const medicines: Medicine[] = [
     dosageForm: 'tablet',
     manufacturer: 'MediHealth',
     availableQuantity: 200,
-    unitPrice: 12.50
+    unitPrice: 12.50,
+    expiryDate: '2025-12-31',
+    lastUpdatedBy: 'user1'
   },
   {
     id: 'med3',
@@ -304,7 +322,9 @@ export const medicines: Medicine[] = [
     dosageForm: 'capsule',
     manufacturer: 'GeneriCo',
     availableQuantity: 350,
-    unitPrice: 0.65
+    unitPrice: 0.65,
+    expiryDate: '2025-12-31',
+    lastUpdatedBy: 'user1'
   }
 ];
 
@@ -316,7 +336,8 @@ export const prescriptions: Prescription[] = [
     doctorId: 'doctor1',
     date: '2025-06-01',
     status: 'active',
-    notes: 'For blood pressure management'
+    notes: 'For blood pressure management',
+    createdBy: 'doctor1'
   },
   {
     id: 'presc2',
@@ -324,7 +345,8 @@ export const prescriptions: Prescription[] = [
     doctorId: 'doctor2',
     date: '2025-06-05',
     status: 'active',
-    notes: 'For migraine management'
+    notes: 'For migraine management',
+    createdBy: 'doctor2'
   }
 ];
 
