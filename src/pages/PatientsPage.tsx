@@ -377,16 +377,7 @@ const PatientsPage: React.FC = () => {
                 <User className="h-8 w-8 text-blue-600" />
                 <h1 className="text-3xl font-bold text-gray-900">Patients</h1>
               </div>
-              {(isAdmin || isDoctor) && !viewingPatient && !editingPatient && (
-                <Button 
-                  leftIcon={<Plus className="h-4 w-4" />}
-                  onClick={() => setIsAd
-
-dingPatient(true)}
-                >
-                  Add New Patient
-                </Button>
-              )}
+             
             </div>
 
             {renderContent()}
