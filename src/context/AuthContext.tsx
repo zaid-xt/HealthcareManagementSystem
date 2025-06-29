@@ -12,6 +12,7 @@ interface AuthContextType {
   logout: () => void;
   error: string | null;
   hasPermission: (permission: Permission) => boolean;
+  updateProfile: (updatedUser: User) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,11 +23,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    // Check if user is stored in localStorage
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser);
-      // Ensure user has current permissions
       parsedUser.permissions = DEFAULT_PERMISSIONS[parsedUser.role];
       setUser(parsedUser);
     }
@@ -38,14 +37,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
     
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Mock authentication logic
       const foundUser = users.find(u => u.email === email);
       
-      if (foundUser && password === 'password') { // In a real app, you'd verify password hash
-        // Add permissions based on role
+      if (foundUser && password === 'password') {
         const userWithPermissions = {
           ...foundUser,
           permissions: DEFAULT_PERMISSIONS[foundUser.role]
@@ -76,10 +72,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
     
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Check if user already exists
       const existingUser = users.find(u => u.email === email);
       
       if (existingUser) {
@@ -88,7 +82,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
       
-      // In a real app, you would send this data to your backend
       const newUser: User = {
         id: `user${users.length + 1}`,
         email,
@@ -97,7 +90,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         permissions: DEFAULT_PERMISSIONS[role]
       };
       
-      // In this mock version, we just add it to our "database"
       users.push(newUser);
       
       setUser(newUser);
@@ -108,6 +100,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError('An error occurred during registration');
       setIsLoading(false);
       return false;
+    }
+  };
+
+  const updateProfile = async (updatedUser: User): Promise<void> => {
+    try {
+      // In a real app, this would make an API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Update the user in the "database"
+      const userIndex = users.findIndex(u => u.id === updatedUser.id);
+      if (userIndex !== -1) {
+        users[userIndex] = updatedUser;
+      }
+      
+      // Update local state and storage
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    } catch (error) {
+      throw new Error('Failed to update profile');
     }
   };
 
@@ -131,7 +142,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         error,
-        hasPermission
+        hasPermission,
+        updateProfile
       }}
     >
       {children}
