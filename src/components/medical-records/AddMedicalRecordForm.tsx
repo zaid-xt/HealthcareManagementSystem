@@ -9,15 +9,17 @@ import { doctors, patients } from '../../utils/mockData';
 interface AddMedicalRecordFormProps {
   onSave: (newRecord: MedicalRecord) => void;
   onCancel: () => void;
+  preselectedPatientId?: string;
 }
 
 const AddMedicalRecordForm: React.FC<AddMedicalRecordFormProps> = ({
   onSave,
-  onCancel
+  onCancel,
+  preselectedPatientId
 }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
-    patientId: '',
+    patientId: preselectedPatientId || '',
     doctorId: user?.role === 'doctor' ? user.id : '',
     diagnosis: '',
     symptoms: '',
@@ -47,24 +49,26 @@ const AddMedicalRecordForm: React.FC<AddMedicalRecordFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Patient
-          </label>
-          <select
-            value={formData.patientId}
-            onChange={(e) => setFormData(prev => ({ ...prev, patientId: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            required
-          >
-            <option value="">Select a patient</option>
-            {patients.map(patient => (
-              <option key={patient.id} value={patient.id}>
-                {patient.firstName} {patient.lastName}
-              </option>
-            ))}
-          </select>
-        </div>
+        {!preselectedPatientId && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Patient
+            </label>
+            <select
+              value={formData.patientId}
+              onChange={(e) => setFormData(prev => ({ ...prev, patientId: e.target.value }))}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              required
+            >
+              <option value="">Select a patient</option>
+              {patients.map(patient => (
+                <option key={patient.id} value={patient.id}>
+                  {patient.firstName} {patient.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {user?.role !== 'doctor' && (
           <div>

@@ -7,8 +7,9 @@ import Button from '../components/ui/Button';
 import AddPatientForm from '../components/patients/AddPatientForm';
 import EditPatientForm from '../components/patients/EditPatientForm';
 import ViewPatient from '../components/patients/ViewPatient';
+import AddMedicalRecordForm from '../components/medical-records/AddMedicalRecordForm';
 import { patients, doctors } from '../utils/mockData';
-import type { Patient } from '../types';
+import type { Patient, MedicalRecord } from '../types';
 
 const PatientsPage: React.FC = () => {
   const { user } = useAuth();
@@ -19,6 +20,7 @@ const PatientsPage: React.FC = () => {
   const [isAddingPatient, setIsAddingPatient] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
+  const [isAddingMedicalRecord, setIsAddingMedicalRecord] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
@@ -56,6 +58,13 @@ const PatientsPage: React.FC = () => {
       patients.splice(patientIndex, 1);
     }
     setPatientToDelete(null);
+  };
+
+  const handleAddMedicalRecord = (newRecord: MedicalRecord) => {
+    // In a real app, this would make an API call
+    const { medicalRecords } = require('../utils/mockData');
+    medicalRecords.push(newRecord);
+    setIsAddingMedicalRecord(false);
   };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -118,7 +127,23 @@ const PatientsPage: React.FC = () => {
         <ViewPatient
           patient={viewingPatient}
           onClose={() => setViewingPatient(null)}
+          onAddMedicalRecord={() => setIsAddingMedicalRecord(true)}
         />
+      );
+    }
+
+    if (isAddingMedicalRecord && viewingPatient) {
+      return (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">
+            Add Medical Record for {viewingPatient.firstName} {viewingPatient.lastName}
+          </h2>
+          <AddMedicalRecordForm
+            onSave={handleAddMedicalRecord}
+            onCancel={() => setIsAddingMedicalRecord(false)}
+            preselectedPatientId={viewingPatient.id}
+          />
+        </div>
       );
     }
 
@@ -355,6 +380,14 @@ const PatientsPage: React.FC = () => {
                             size="sm"
                             className="mr-2"
                             leftIcon={<FileText className="h-4 w-4" />}
+                            onClick={() => {
+                              setViewingPatient(patient);
+                              // Auto-switch to records tab when clicking Records button
+                              setTimeout(() => {
+                                const recordsTab = document.querySelector('[data-tab="records"]') as HTMLButtonElement;
+                                if (recordsTab) recordsTab.click();
+                              }, 100);
+                            }}
                           >
                             Records
                           </Button>
