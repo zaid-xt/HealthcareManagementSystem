@@ -105,6 +105,30 @@ export const patients: Patient[] = [
       policyNumber: 'MS789012',
       expiryDate: '2025-10-15'
     }
+  },
+  {
+    id: 'patient4',
+    patientId: 'P004',
+    doctorId: 'doctor1',
+    firstName: 'Catherine',
+    lastName: 'Jones',
+    dateOfBirth: '1988-09-12',
+    gender: 'female',
+    bloodType: 'A-',
+    contactNumber: '555-3579',
+    email: 'catherine.jones@example.com',
+    address: '321 Elm Street, Newtown, CA 94324',
+    status: 'active',
+    emergencyContact: {
+      name: 'David Jones',
+      relation: 'Brother',
+      contactNumber: '555-4680'
+    },
+    insuranceDetails: {
+      provider: 'CareFirst',
+      policyNumber: 'CF456789',
+      expiryDate: '2025-11-30'
+    }
   }
 ];
 
@@ -179,6 +203,18 @@ export const appointments: Appointment[] = [
     endTime: '10:00',
     status: 'completed',
     type: 'regular',
+    createdBy: 'user1'
+  },
+  {
+    id: 'appt4',
+    patientId: 'patient4',
+    doctorId: 'doctor1',
+    date: '2025-06-17',
+    startTime: '14:00',
+    endTime: '14:30',
+    status: 'scheduled',
+    type: 'regular',
+    notes: 'Initial consultation for chest pain',
     createdBy: 'user1'
   }
 ];
@@ -265,6 +301,18 @@ export const medicalRecords: MedicalRecord[] = [
     notes: 'Recommended lifestyle modifications to identify triggers',
     lastUpdated: '2025-06-05',
     lastUpdatedBy: 'doctor2'
+  },
+  {
+    id: 'rec3',
+    patientId: 'patient4',
+    doctorId: 'doctor1',
+    date: '2025-06-10',
+    diagnosis: 'Chest Pain - Non-cardiac',
+    symptoms: ['Chest discomfort', 'Shortness of breath', 'Anxiety'],
+    treatment: 'Stress management techniques and follow-up in 2 weeks',
+    notes: 'EKG and chest X-ray normal. Likely stress-related chest pain.',
+    lastUpdated: '2025-06-10',
+    lastUpdatedBy: 'doctor1'
   }
 ];
 
@@ -288,6 +336,16 @@ export const labs: Lab[] = [
     date: '2025-06-14',
     status: 'pending',
     requestedBy: 'doctor2'
+  },
+  {
+    id: 'lab3',
+    patientId: 'patient4',
+    doctorId: 'doctor1',
+    testType: 'Cardiac Enzymes',
+    date: '2025-06-10',
+    results: 'Troponin I: <0.04 ng/mL (Normal), CK-MB: 2.1 ng/mL (Normal)',
+    status: 'completed',
+    requestedBy: 'doctor1'
   }
 ];
 
