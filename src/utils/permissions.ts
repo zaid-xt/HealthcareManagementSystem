@@ -20,6 +20,7 @@ export const DEFAULT_PERMISSIONS: UserPermissions = {
   doctor: [
     'view_assigned_patients',
     'manage_patients',
+    'manage_wards',
     'manage_medical_records',
     'create_prescriptions',
     'view_lab_results',
