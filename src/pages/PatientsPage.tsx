@@ -7,7 +7,7 @@ import Button from '../components/ui/Button';
 import AddPatientForm from '../components/patients/AddPatientForm';
 import EditPatientForm from '../components/patients/EditPatientForm';
 import ViewPatient from '../components/patients/ViewPatient';
-import { patients } from '../utils/mockData';
+import { patients, doctors } from '../utils/mockData';
 import type { Patient } from '../types';
 
 const PatientsPage: React.FC = () => {
@@ -252,6 +252,9 @@ const PatientsPage: React.FC = () => {
                     Patient
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Assigned Doctor
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Medical Info
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -266,99 +269,122 @@ const PatientsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredPatients.map((patient) => (
-                  <tr key={patient.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                          <span className="font-medium text-sm">
-                            {patient.firstName[0]}{patient.lastName[0]}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {patient.firstName} {patient.lastName}
+                {filteredPatients.map((patient) => {
+                  const assignedDoctor = doctors.find(d => d.id === patient.doctorId);
+                  
+                  return (
+                    <tr key={patient.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                            <span className="font-medium text-sm">
+                              {patient.firstName[0]}{patient.lastName[0]}
+                            </span>
                           </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {patient.firstName} {patient.lastName}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              ID: {patient.id}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {assignedDoctor ? (
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              Dr. {assignedDoctor.firstName} {assignedDoctor.lastName}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              ID: {assignedDoctor.id}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {assignedDoctor.specialization}
+                            </div>
+                          </div>
+                        ) : (
                           <div className="text-sm text-gray-500">
-                            ID: {patient.id}
+                            No doctor assigned
                           </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          Age: {calculateAge(patient.dateOfBirth)} years
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        Age: {calculateAge(patient.dateOfBirth)} years
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Blood Type: {patient.bloodType || 'N/A'}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Gender: {patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{patient.contactNumber}</div>
-                      <div className="text-sm text-gray-500">{patient.email}</div>
-                      <div className="text-sm text-gray-500 truncate max-w-xs">
-                        {patient.address}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {patient.emergencyContact.name}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {patient.emergencyContact.relation}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {patient.emergencyContact.contactNumber}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mr-2"
-                        leftIcon={<Eye className="h-4 w-4" />}
-                        onClick={() => setViewingPatient(patient)}
-                      >
-                        View
-                      </Button>
-                      {isDoctor && (
+                        <div className="text-sm text-gray-500">
+                          Blood Type: {patient.bloodType || 'N/A'}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Gender: {patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{patient.contactNumber}</div>
+                        <div className="text-sm text-gray-500">{patient.email}</div>
+                        <div className="text-sm text-gray-500 truncate max-w-xs">
+                          {patient.address}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {patient.emergencyContact.name}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {patient.emergencyContact.relation}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {patient.emergencyContact.contactNumber}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <Button
                           variant="outline"
                           size="sm"
                           className="mr-2"
-                          leftIcon={<FileText className="h-4 w-4" />}
+                          leftIcon={<Eye className="h-4 w-4" />}
+                          onClick={() => setViewingPatient(patient)}
                         >
-                          Records
+                          View
                         </Button>
-                      )}
-                      {isAdmin && (
-                        <>
+                        {isDoctor && (
                           <Button
                             variant="outline"
                             size="sm"
                             className="mr-2"
-                            leftIcon={<Edit2 className="h-4 w-4" />}
-                            onClick={() => setEditingPatient(patient)}
+                            leftIcon={<FileText className="h-4 w-4" />}
                           >
-                            Edit
+                            Records
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 hover:bg-red-50"
-                            leftIcon={<Trash2 className="h-4 w-4" />}
-                            onClick={() => setPatientToDelete(patient)}
-                          >
-                            Delete
-                          </Button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        )}
+                        {isAdmin && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mr-2"
+                              leftIcon={<Edit2 className="h-4 w-4" />}
+                              onClick={() => setEditingPatient(patient)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:bg-red-50"
+                              leftIcon={<Trash2 className="h-4 w-4" />}
+                              onClick={() => setPatientToDelete(patient)}
+                            >
+                              Delete
+                            </Button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
