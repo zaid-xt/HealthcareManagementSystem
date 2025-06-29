@@ -163,6 +163,8 @@ export interface Message {
 // Permission types for role-based access control
 export type Permission =
   | 'manage_users'
+  | 'manage_doctors'
+  | 'manage_patients'
   | 'manage_wards'
   | 'manage_inventory'
   | 'manage_appointments'
