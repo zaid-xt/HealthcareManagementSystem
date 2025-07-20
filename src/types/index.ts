@@ -11,7 +11,9 @@ export interface User {
 
 export interface Patient {
   id: string;
-  userId?: string; // Reference to user if patient has account
+  patientId: string;
+  doctorId?: string;
+  userId?: string;
   firstName: string;
   lastName: string;
   dateOfBirth: string;
@@ -20,6 +22,7 @@ export interface Patient {
   contactNumber: string;
   email: string;
   address: string;
+  status: 'active' | 'inactive' | 'pending' | 'discharged';
   emergencyContact: {
     name: string;
     relation: string;
@@ -162,6 +165,8 @@ export interface Message {
 // Permission types for role-based access control
 export type Permission =
   | 'manage_users'
+  | 'manage_doctors'
+  | 'manage_patients'
   | 'manage_wards'
   | 'manage_inventory'
   | 'manage_appointments'

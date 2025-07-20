@@ -38,18 +38,20 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
+
+          {/* Protected Routes for Admin and Doctor */}
           <Route
-            path="/admin/patients"
+            path="/patients"
             element={
-              <ProtectedRoute allowedRoles={['admin']} requiredPermissions={['manage_patients']}>
+              <ProtectedRoute allowedRoles={['admin', 'doctor']} requiredPermissions={['manage_patients']}>
                 <PatientsPage />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/admin/wards"
+            path="/wards"
             element={
-              <ProtectedRoute allowedRoles={['admin']} requiredPermissions={['manage_wards']}>
+              <ProtectedRoute allowedRoles={['admin', 'doctor']} requiredPermissions={['manage_wards']}>
                 <WardsPage />
               </ProtectedRoute>
             }
@@ -96,14 +98,6 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute allowedRoles={['admin', 'doctor', 'patient']}>
                 <MessagesPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/wards"
-            element={
-              <ProtectedRoute allowedRoles={['admin', 'doctor', 'nurse']}>
-                <WardsPage />
               </ProtectedRoute>
             }
           />

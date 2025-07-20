@@ -2,20 +2,23 @@ import React, { useState } from 'react';
 import { Save, X } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import { useAuth } from '../../context/AuthContext';
 import type { Ward } from '../../types';
 
 interface AddWardFormProps {
-  onSave: (ward: Omit<Ward, 'id' | 'managedBy'>) => void;
+  onSave: (ward: Omit<Ward, 'id'>) => void;
   onCancel: () => void;
 }
 
 const AddWardForm: React.FC<AddWardFormProps> = ({ onSave, onCancel }) => {
+  const { user } = useAuth();
+
   const [formData, setFormData] = useState({
     name: '',
     type: 'general' as Ward['type'],
     floorNumber: 1,
-    totalBeds: 0,
-    availableBeds: 0
+    totalBeds: 10,
+    availableBeds: 10
   });
 
   const [errors, setErrors] = useState({
@@ -37,8 +40,13 @@ const AddWardForm: React.FC<AddWardFormProps> = ({ onSave, onCancel }) => {
       isValid = false;
     }
 
-    if (formData.totalBeds <= 0) {
-      newErrors.totalBeds = 'Total beds must be greater than 0';
+    if (formData.totalBeds < 1) {
+      newErrors.totalBeds = 'Total beds must be at least 1';
+      isValid = false;
+    }
+
+    if (formData.availableBeds < 0) {
+      newErrors.availableBeds = 'Available beds cannot be negative';
       isValid = false;
     }
 
@@ -54,68 +62,79 @@ const AddWardForm: React.FC<AddWardFormProps> = ({ onSave, onCancel }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onSave(formData);
+      onSave({
+        ...formData,
+        managedBy: user?.id || ''
+      });
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <Input
-        label="Ward Name"
-        value={formData.name}
-        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-        error={errors.name}
-        required
-      />
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Ward Type
-        </label>
-        <select
-          value={formData.type}
-          onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as Ward['type'] }))}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Input
+          label="Ward Name"
+          value={formData.name}
+          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+          error={errors.name}
           required
-        >
-          <option value="general">General</option>
-          <option value="icu">ICU</option>
-          <option value="emergency">Emergency</option>
-          <option value="maternity">Maternity</option>
-          <option value="pediatric">Pediatric</option>
-          <option value="surgical">Surgical</option>
-        </select>
+          placeholder="e.g., General Ward A"
+        />
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Ward Type</label>
+          <select
+            value={formData.type}
+            onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as Ward['type'] }))}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            required
+          >
+            <option value="general">General</option>
+            <option value="icu">ICU</option>
+            <option value="emergency">Emergency</option>
+            <option value="maternity">Maternity</option>
+            <option value="pediatric">Pediatric</option>
+            <option value="surgical">Surgical</option>
+          </select>
+        </div>
+
+        <Input
+          label="Floor Number"
+          type="number"
+          value={formData.floorNumber}
+          onChange={(e) => setFormData(prev => ({ ...prev, floorNumber: parseInt(e.target.value) }))}
+          min="1"
+          required
+        />
+
+        <Input
+          label="Total Beds"
+          type="number"
+          value={formData.totalBeds}
+          onChange={(e) => {
+            const totalBeds = parseInt(e.target.value);
+            setFormData(prev => ({
+              ...prev,
+              totalBeds,
+              availableBeds: Math.min(prev.availableBeds, totalBeds)
+            }));
+          }}
+          error={errors.totalBeds}
+          min="1"
+          required
+        />
+
+        <Input
+          label="Available Beds"
+          type="number"
+          value={formData.availableBeds}
+          onChange={(e) => setFormData(prev => ({ ...prev, availableBeds: parseInt(e.target.value) }))}
+          error={errors.availableBeds}
+          min="0"
+          max={formData.totalBeds}
+          required
+        />
       </div>
-
-      <Input
-        label="Floor Number"
-        type="number"
-        value={formData.floorNumber}
-        onChange={(e) => setFormData(prev => ({ ...prev, floorNumber: parseInt(e.target.value) }))}
-        min={1}
-        required
-      />
-
-      <Input
-        label="Total Beds"
-        type="number"
-        value={formData.totalBeds}
-        onChange={(e) => setFormData(prev => ({ ...prev, totalBeds: parseInt(e.target.value) }))}
-        error={errors.totalBeds}
-        min={1}
-        required
-      />
-
-      <Input
-        label="Available Beds"
-        type="number"
-        value={formData.availableBeds}
-        onChange={(e) => setFormData(prev => ({ ...prev, availableBeds: parseInt(e.target.value) }))}
-        error={errors.availableBeds}
-        min={0}
-        max={formData.totalBeds}
-        required
-      />
 
       <div className="flex justify-end space-x-4">
         <Button
