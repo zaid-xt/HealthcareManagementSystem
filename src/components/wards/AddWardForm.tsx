@@ -12,6 +12,7 @@ interface AddWardFormProps {
 
 const AddWardForm: React.FC<AddWardFormProps> = ({ onSave, onCancel }) => {
   const { user } = useAuth();
+
   const [formData, setFormData] = useState({
     name: '',
     type: 'general' as Ward['type'],
@@ -34,7 +35,7 @@ const AddWardForm: React.FC<AddWardFormProps> = ({ onSave, onCancel }) => {
     };
     let isValid = true;
 
-    if (!formData.name) {
+    if (!formData.name.trim()) {
       newErrors.name = 'Ward name is required';
       isValid = false;
     }
@@ -79,13 +80,14 @@ const AddWardForm: React.FC<AddWardFormProps> = ({ onSave, onCancel }) => {
           required
           placeholder="e.g., General Ward A"
         />
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Ward Type</label>
           <select
             value={formData.type}
             onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as Ward['type'] }))}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            required
           >
             <option value="general">General</option>
             <option value="icu">ICU</option>
@@ -95,7 +97,7 @@ const AddWardForm: React.FC<AddWardFormProps> = ({ onSave, onCancel }) => {
             <option value="surgical">Surgical</option>
           </select>
         </div>
-        
+
         <Input
           label="Floor Number"
           type="number"
@@ -104,15 +106,15 @@ const AddWardForm: React.FC<AddWardFormProps> = ({ onSave, onCancel }) => {
           min="1"
           required
         />
-        
+
         <Input
           label="Total Beds"
           type="number"
           value={formData.totalBeds}
           onChange={(e) => {
             const totalBeds = parseInt(e.target.value);
-            setFormData(prev => ({ 
-              ...prev, 
+            setFormData(prev => ({
+              ...prev,
               totalBeds,
               availableBeds: Math.min(prev.availableBeds, totalBeds)
             }));
@@ -121,7 +123,7 @@ const AddWardForm: React.FC<AddWardFormProps> = ({ onSave, onCancel }) => {
           min="1"
           required
         />
-        
+
         <Input
           label="Available Beds"
           type="number"

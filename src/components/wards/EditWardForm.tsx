@@ -10,11 +10,7 @@ interface EditWardFormProps {
   onCancel: () => void;
 }
 
-const EditWardForm: React.FC<EditWardFormProps> = ({
-  ward,
-  onSave,
-  onCancel
-}) => {
+const EditWardForm: React.FC<EditWardFormProps> = ({ ward, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
     name: ward.name,
     type: ward.type,
@@ -37,7 +33,7 @@ const EditWardForm: React.FC<EditWardFormProps> = ({
     };
     let isValid = true;
 
-    if (!formData.name) {
+    if (!formData.name.trim()) {
       newErrors.name = 'Ward name is required';
       isValid = false;
     }
@@ -81,13 +77,14 @@ const EditWardForm: React.FC<EditWardFormProps> = ({
           error={errors.name}
           required
         />
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Ward Type</label>
           <select
             value={formData.type}
             onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as Ward['type'] }))}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            required
           >
             <option value="general">General</option>
             <option value="icu">ICU</option>
@@ -97,7 +94,7 @@ const EditWardForm: React.FC<EditWardFormProps> = ({
             <option value="surgical">Surgical</option>
           </select>
         </div>
-        
+
         <Input
           label="Floor Number"
           type="number"
@@ -106,15 +103,15 @@ const EditWardForm: React.FC<EditWardFormProps> = ({
           min="1"
           required
         />
-        
+
         <Input
           label="Total Beds"
           type="number"
           value={formData.totalBeds}
           onChange={(e) => {
             const totalBeds = parseInt(e.target.value);
-            setFormData(prev => ({ 
-              ...prev, 
+            setFormData(prev => ({
+              ...prev,
               totalBeds,
               availableBeds: Math.min(prev.availableBeds, totalBeds)
             }));
@@ -123,7 +120,7 @@ const EditWardForm: React.FC<EditWardFormProps> = ({
           min="1"
           required
         />
-        
+
         <Input
           label="Available Beds"
           type="number"
@@ -149,8 +146,8 @@ const EditWardForm: React.FC<EditWardFormProps> = ({
             </h3>
             <div className="mt-2 text-sm text-yellow-700">
               <p>
-                Changing the total beds or available beds may affect current patient admissions. 
-                Please ensure this change is coordinated with nursing staff.
+                Changing the total or available bed count may impact ongoing patient admissions.
+                Please coordinate with hospital staff before making changes.
               </p>
             </div>
           </div>

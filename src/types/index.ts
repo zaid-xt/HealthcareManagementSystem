@@ -154,6 +154,8 @@ export interface Message {
   content: string;
   timestamp: string;
   read: boolean;
+  status: 'sent' | 'delivered' | 'read' | 'archived' | 'deleted';
+  priority?: 'normal' | 'urgent';
   attachments?: {
     name: string;
     url: string;
