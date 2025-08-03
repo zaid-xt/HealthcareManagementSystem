@@ -15,7 +15,8 @@ import type { Ward } from '../types';
 const WardsPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const canManageWards = isAdmin || user?.role === 'doctor';
+  const isDoctor = user?.role === 'doctor';
+  const canManageWards = isAdmin || isDoctor;
   const [isAddingWard, setIsAddingWard] = useState(false);
   const [editingWard, setEditingWard] = useState<Ward | null>(null);
   const [wardToDelete, setWardToDelete] = useState<Ward | null>(null);
@@ -106,7 +107,178 @@ const WardsPage: React.FC = () => {
 
     return (
       <>
-        {/* Overview and List here (same as before, omitted for brevity) */}
+        {/* Ward Overview Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center">
+              <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                <Building className="h-6 w-6" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Total Wards</p>
+                <p className="text-2xl font-semibold text-gray-900">{wards.length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center">
+              <div className="p-3 rounded-full bg-green-100 text-green-600">
+                <BedDouble className="h-6 w-6" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Total Beds</p>
+                <p className="text-2xl font-semibold text-gray-900">{totalBeds}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center">
+              <div className="p-3 rounded-full bg-teal-100 text-teal-600">
+                <Activity className="h-6 w-6" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Occupancy Rate</p>
+                <p className="text-2xl font-semibold text-gray-900">{overallOccupancyRate}%</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center">
+              <div className="p-3 rounded-full bg-red-100 text-red-600">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Critical Wards</p>
+                <p className="text-2xl font-semibold text-gray-900">{criticalWards}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Wards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredWards.map((ward) => {
+            const occupancyPercentage = getOccupancyPercentage(ward.totalBeds, ward.availableBeds);
+            const occupiedBeds = ward.totalBeds - ward.availableBeds;
+            const wardAdmittances = admittances.filter(a => a.wardId === ward.id && a.status === 'admitted');
+            
+            return (
+              <div key={ward.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{ward.name}</h3>
+                      <p className="text-sm text-gray-500 capitalize">{ward.type} Ward • Floor {ward.floorNumber}</p>
+                    </div>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getOccupancyColor(occupancyPercentage)}`}>
+                      {occupancyPercentage}% Full
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Total Beds</span>
+                      <span className="font-medium">{ward.totalBeds}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Available</span>
+                      <span className="font-medium text-green-600">{ward.availableBeds}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Occupied</span>
+                      <span className="font-medium text-blue-600">{occupiedBeds}</span>
+                    </div>
+                  </div>
+
+                  {/* Bed Occupancy Bar */}
+                  <div className="mt-4">
+                    <div className="flex justify-between text-sm text-gray-600 mb-1">
+                      <span>Occupancy</span>
+                      <span>{occupancyPercentage}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full transition-all ${
+                          occupancyPercentage >= 90 ? 'bg-red-500' :
+                          occupancyPercentage >= 75 ? 'bg-amber-500' :
+                          'bg-green-500'
+                        }`}
+                        style={{ width: `${occupancyPercentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Current Admissions */}
+                  {wardAdmittances.length > 0 && (
+                    <div className="mt-4 pt-4 border-t">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Current Admissions</h4>
+                      <div className="space-y-1">
+                        {wardAdmittances.slice(0, 3).map((admission) => {
+                          const patient = patients.find(p => p.id === admission.patientId);
+                          return (
+                            <div key={admission.id} className="flex items-center text-xs text-gray-600">
+                              <Users className="h-3 w-3 mr-1" />
+                              <span>Bed {admission.bedNumber}: {patient?.firstName} {patient?.lastName}</span>
+                            </div>
+                          );
+                        })}
+                        {wardAdmittances.length > 3 && (
+                          <p className="text-xs text-gray-500">+{wardAdmittances.length - 3} more patients</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                {canManageWards && (
+                  <div className="px-6 py-3 bg-gray-50 border-t flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Edit2 className="h-4 w-4" />}
+                      onClick={() => setEditingWard(ward)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:bg-red-50"
+                      leftIcon={<Trash2 className="h-4 w-4" />}
+                      onClick={() => setWardToDelete(ward)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {filteredWards.length === 0 && (
+          <div className="text-center py-12">
+            <Building className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No wards found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {searchTerm ? 'Try adjusting your search terms.' : 'Get started by creating a new ward.'}
+            </p>
+            {canManageWards && !searchTerm && (
+              <div className="mt-6">
+                <Button
+                  onClick={() => setIsAddingWard(true)}
+                  leftIcon={<Plus className="h-4 w-4" />}
+                >
+                  Add New Ward
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </>
     );
   };
