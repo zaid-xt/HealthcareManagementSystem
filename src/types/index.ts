@@ -7,6 +7,8 @@ export interface User {
   role: 'admin' | 'doctor' | 'patient';
   avatar?: string;
   permissions?: string[];
+  doctorId?: string;
+  specialization?: string;
 }
 
 export interface Patient {

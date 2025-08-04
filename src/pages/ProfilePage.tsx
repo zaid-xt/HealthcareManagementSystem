@@ -18,6 +18,7 @@ const ProfilePage: React.FC = () => {
     department: doctor?.department || '',
     contactNumber: doctor?.contactNumber || '',
     email: user?.email || '',
+    doctorId: user?.doctorId || doctor?.licenseNumber || '',
   });
 
   const [isEditing, setIsEditing] = useState(false);
@@ -40,6 +41,11 @@ const ProfilePage: React.FC = () => {
           contactNumber: formData.contactNumber,
           email: formData.email
         };
+        
+        // Update doctor's license number if doctorId changed
+        if (formData.doctorId !== doctors[doctorIndex].licenseNumber) {
+          doctors[doctorIndex].licenseNumber = formData.doctorId;
+        }
       }
 
       // Update user name in auth context
@@ -47,7 +53,9 @@ const ProfilePage: React.FC = () => {
         await updateProfile({
           ...user,
           name: `${formData.firstName} ${formData.lastName}`,
-          email: formData.email
+          email: formData.email,
+          doctorId: formData.doctorId,
+          specialization: formData.specialization
         });
       }
 
@@ -117,6 +125,13 @@ const ProfilePage: React.FC = () => {
                       {user?.role === 'doctor' && (
                         <>
                           <Input
+                            label="Doctor ID"
+                            value={formData.doctorId}
+                            onChange={(e) => setFormData(prev => ({ ...prev, doctorId: e.target.value }))}
+                            required
+                          />
+                          
+                          <Input
                             label="Specialization"
                             value={formData.specialization}
                             onChange={(e) => setFormData(prev => ({ ...prev, specialization: e.target.value }))}
@@ -180,6 +195,11 @@ const ProfilePage: React.FC = () => {
                       
                       {user?.role === 'doctor' && (
                         <>
+                          <div>
+                            <h3 className="text-sm font-medium text-gray-500">Doctor ID</h3>
+                            <p className="mt-1 text-sm text-gray-900">{formData.doctorId}</p>
+                          </div>
+                          
                           <div>
                             <h3 className="text-sm font-medium text-gray-500">Specialization</h3>
                             <p className="mt-1 text-sm text-gray-900">{formData.specialization}</p>

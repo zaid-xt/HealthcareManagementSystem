@@ -8,7 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (email: string, name: string, password: string, role: User['role']) => Promise<boolean>;
+  register: (email: string, name: string, password: string, role: User['role'], additionalInfo?: { doctorId?: string; specialization?: string }) => Promise<boolean>;
   logout: () => void;
   error: string | null;
   hasPermission: (permission: Permission) => boolean;
@@ -66,7 +66,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: string, 
     name: string, 
     password: string, 
-    role: User['role']
+    role: User['role'],
+    additionalInfo?: { doctorId?: string; specialization?: string }
   ): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
@@ -87,10 +88,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         name,
         role,
-        permissions: DEFAULT_PERMISSIONS[role]
+        permissions: DEFAULT_PERMISSIONS[role],
+        doctorId: additionalInfo?.doctorId,
+        specialization: additionalInfo?.specialization
       };
       
       users.push(newUser);
+      
+      // If registering as a doctor, also create a doctor record
+      if (role === 'doctor' && additionalInfo?.doctorId && additionalInfo?.specialization) {
+        const { doctors } = await import('../utils/mockData');
+        const [firstName, ...lastNameParts] = name.split(' ');
+        const lastName = lastNameParts.join(' ') || '';
+        
+        const newDoctor = {
+          id: additionalInfo.doctorId,
+          userId: newUser.id,
+          firstName,
+          lastName,
+          specialization: additionalInfo.specialization,
+          department: additionalInfo.specialization,
+          contactNumber: '',
+          email,
+          licenseNumber: additionalInfo.doctorId,
+          availability: []
+        };
+        
+        doctors.push(newDoctor);
+      }
       
       setUser(newUser);
       localStorage.setItem('user', JSON.stringify(newUser));
