@@ -95,8 +95,8 @@ const SignUpForm: React.FC = () => {
   return (
     <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg">
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-gray-900">Create account</h2>
-        <p className="mt-2 text-gray-600">Sign up for a new account</p>
+        <h2 className="text-3xl font-bold text-gray-900">Create Account</h2>
+        <p className="mt-2 text-gray-600">Sign Up For A New Account</p>
       </div>
       
       {error && (
@@ -108,7 +108,7 @@ const SignUpForm: React.FC = () => {
       <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
         <div className="space-y-4">
           <Input
-            label="Full name"
+            label="Full Name"
             type="text"
             id="name"
             value={name}
@@ -121,7 +121,7 @@ const SignUpForm: React.FC = () => {
           />
           
           <Input
-            label="Email address"
+            label="Email Address"
             type="email"
             id="email"
             value={email}
@@ -147,7 +147,7 @@ const SignUpForm: React.FC = () => {
           />
           
           <Input
-            label="Confirm password"
+            label="Confirm Password"
             type="password"
             id="confirmPassword"
             value={confirmPassword}
@@ -160,7 +160,7 @@ const SignUpForm: React.FC = () => {
           />
           
           <div className="space-y-1.5">
-            <label className="text-sm font-medium leading-none">Account type</label>
+            <label className="text-sm font-medium leading-none">Account Type</label>
             <div className="flex space-x-4 mt-2">
               <label className="flex items-center space-x-2">
                 <input
@@ -203,7 +203,7 @@ const SignUpForm: React.FC = () => {
                 required
               />
               
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Specialization
                 </label>
@@ -233,7 +233,7 @@ const SignUpForm: React.FC = () => {
                 {formErrors.specialization && (
                   <p className="mt-1 text-sm text-red-600">{formErrors.specialization}</p>
                 )}
-              </div>
+              </div> */}
             </>
           )}
         </div>
