@@ -258,19 +258,19 @@ const SignUpForm: React.FC = () => {
             isLoading={isLoading}
             rightIcon={<UserPlus className="h-4 w-4" />}
           >
-            Create account
+            Create Account
           </Button>
         </div>
       </form>
       
       <p className="mt-10 text-center text-sm text-gray-600">
-        Already have an account?{' '}
+        Already Have An Account?{' '}
         <button
           type="button"
           onClick={() => navigate('/signin')}
           className="font-medium text-blue-600 hover:text-blue-500"
         >
-          Sign in
+          Sign In
         </button>
       </p>
     </div>
