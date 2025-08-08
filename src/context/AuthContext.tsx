@@ -102,13 +102,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const lastName = lastNameParts.join(' ') || '';
         
         const newDoctor = {
-          id: additionalInfo.doctorId,
+          id: `doctor${doctors.length + 1}`,
           userId: newUser.id,
           firstName,
           lastName,
           specialization: additionalInfo.specialization,
           department: additionalInfo.specialization,
-          contactNumber: '',
+          contactNumber: '', // Will be updated in profile
           email,
           licenseNumber: additionalInfo.doctorId,
           availability: []

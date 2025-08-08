@@ -101,6 +101,9 @@ const Navbar: React.FC = () => {
                   <BellRing className="h-6 w-6" />
                 </button>
                 
+                    {user?.role === 'doctor' && user?.specialization && (
+                      <div className="text-xs text-blue-600">{user.specialization}</div>
+                    )}
                 <div className="relative">
                   <button
                     type="button"
