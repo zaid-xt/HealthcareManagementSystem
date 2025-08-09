@@ -78,19 +78,35 @@ const SignUpForm: React.FC = () => {
     return isValid;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
-    
-    const success = await register(email, name, password, role, {
-      doctorId: role === 'doctor' ? doctorId : undefined,
-      specialization: role === 'doctor' ? specialization : undefined
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!validateForm()) return;
+
+  try {
+    const res = await fetch("http://localhost:5000/api/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        role,
+        doctorId: role === "doctor" ? doctorId : null,
+        specialization: role === "doctor" ? specialization : null
+      })
     });
-    if (success) {
-      navigate('/dashboard');
+
+    const data = await res.json();
+    if (res.ok) {
+      navigate("/dashboard");
+    } else {
+      alert(data.message);
     }
-  };
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 
   return (
     <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg">

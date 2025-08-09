@@ -10,7 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
     "lucide-react": "^0.344.0",
+    "mysql2": "^3.14.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.21.3"
@@ -30,5 +35,10 @@
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
     "vite": "^5.4.2"
-  }
+  },
+  "description": "HealthcareManagementSystem\r https://lucid.app/lucidchart/2293ff49-a2d8-4b06-bcae-bdfcf5dab6fd/edit?invitationId=inv_c9825b76-3456-429c-86e6-525176be13fe&page=0_0#\r ![Blank diagram (1)](https://github.com/user-attachments/assets/9c5c60bc-1462-406c-8c74-5d7a7caa3c9f)",
+  "main": "eslint.config.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
