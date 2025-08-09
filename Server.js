@@ -64,6 +64,40 @@ app.post("/api/signup", async (req, res) => {
     console.error("❌ Unexpected server error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
+  
 });
+
+// Login endpoint
+app.post("/api/login", (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required" });
+  }
+
+  db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
+    if (err) {
+      console.error("Database SELECT error:", err);
+      return res.status(500).json({ message: "Database error" });
+    }
+
+    if (results.length === 0) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const user = results[0];
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    // You can optionally exclude the password from the response
+    const { password: pwd, ...userWithoutPassword } = user;
+
+    res.status(200).json({ message: "Login successful", user: userWithoutPassword });
+  });
+});
+
 
 app.listen(5000, () => console.log("🚀 Server running on port 5000"));
