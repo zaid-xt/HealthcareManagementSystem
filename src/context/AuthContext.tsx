@@ -18,6 +18,7 @@ interface AuthContextType {
   error: string | null;
   hasPermission: (permission: Permission) => boolean;
   updateProfile: (updatedUser: User) => Promise<void>;
+  deleteProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,9 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // Add permissions from your permissions map
       data.user.permissions = DEFAULT_PERMISSIONS[data.user.role];
-
       setUser(data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
       setIsLoading(false);
@@ -101,9 +100,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // Optionally auto-login after successful registration:
-      // return await login(email, password);
-
       setIsLoading(false);
       return true;
     } catch (err) {
@@ -113,43 +109,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
- // Update the updateProfile function in AuthContext.tsx
-const updateProfile = async (updatedUser: User): Promise<void> => {
-  setIsLoading(true);
-  setError(null);
+  const updateProfile = async (updatedUser: User): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
 
-  try {
-    const response = await fetch('http://localhost:5000/api/profile', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: user?.id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        doctorId: updatedUser.doctorId,
-        role: user?.role
-      }),
-    });
+    try {
+      const response = await fetch('http://localhost:5000/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user?.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          doctorId: updatedUser.doctorId,
+          role: user?.role
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      setError(data.message || 'Profile update failed');
+      if (!response.ok) {
+        setError(data.message || 'Profile update failed');
+        setIsLoading(false);
+        throw new Error(data.message || 'Profile update failed');
+      }
+
+      const newUser = { ...user, ...updatedUser };
+      setUser(newUser);
+      localStorage.setItem('user', JSON.stringify(newUser));
       setIsLoading(false);
-      throw new Error(data.message || 'Profile update failed');
+    } catch (err) {
+      setError('Network error during profile update');
+      setIsLoading(false);
+      throw err;
     }
+  };
 
-    // Update local state and storage
-    const newUser = { ...user, ...updatedUser };
-    setUser(newUser);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    setIsLoading(false);
-  } catch (err) {
-    setError('Network error during profile update');
-    setIsLoading(false);
-    throw err;
-  }
-};
+  const deleteProfile = async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/profile/${user?.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || 'Profile deletion failed');
+        setIsLoading(false);
+        throw new Error(data.message || 'Profile deletion failed');
+      }
+
+      logout();
+    } catch (err) {
+      setError('Network error during profile deletion');
+      setIsLoading(false);
+      throw err;
+    }
+  };
 
   const logout = () => {
     setUser(null);
@@ -173,6 +193,7 @@ const updateProfile = async (updatedUser: User): Promise<void> => {
         error,
         hasPermission,
         updateProfile,
+        deleteProfile,
       }}
     >
       {children}

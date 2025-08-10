@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { User, Save, X, Stethoscope } from 'lucide-react';
+import { User, Save, X, Stethoscope, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
+import ConfirmationModal from '../components/ui/ConfirmationModal';
 
 const ProfilePage: React.FC = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, deleteProfile, logout } = useAuth();
+  const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -17,6 +20,7 @@ const ProfilePage: React.FC = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +29,7 @@ const ProfilePage: React.FC = () => {
     try {
       if (user) {
         await updateProfile({
-          ...user, // Include all existing user properties
+          ...user,
           name: formData.name,
           email: formData.email,
           doctorId: user.role === 'doctor' ? formData.doctorId : null
@@ -36,6 +40,16 @@ const ProfilePage: React.FC = () => {
       console.error('Failed to update profile:', error);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    try {
+      await deleteProfile();
+      logout();
+      navigate('/');
+    } catch (error) {
+      console.error('Failed to delete profile:', error);
     }
   };
 
@@ -58,9 +72,18 @@ const ProfilePage: React.FC = () => {
                 <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
               </div>
               {!isEditing && (
-                <Button onClick={() => setIsEditing(true)}>
-                  Edit Profile
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => setIsEditing(true)}>
+                    Edit Profile
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={() => setShowDeleteModal(true)}
+                    leftIcon={<Trash2 className="h-4 w-4" />}
+                  >
+                    Delete Profile
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -158,6 +181,16 @@ const ProfilePage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          <ConfirmationModal
+            isOpen={showDeleteModal}
+            onClose={() => setShowDeleteModal(false)}
+            onConfirm={handleDeleteProfile}
+            title="Delete Profile"
+            message="Are you sure you want to permanently delete your profile? This action cannot be undone."
+            confirmText="Delete Profile"
+            confirmVariant="danger"
+          />
         </main>
       </div>
     </div>

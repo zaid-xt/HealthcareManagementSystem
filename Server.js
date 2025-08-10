@@ -99,7 +99,7 @@ app.post("/api/login", (req, res) => {
   });
 });
 
-// Add this endpoint to Server.js
+// Update profile endpoint
 app.put("/api/profile", async (req, res) => {
   try {
     const { id, name, email, doctorId } = req.body;
@@ -134,5 +134,33 @@ app.put("/api/profile", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+// Delete profile endpoint
+app.delete("/api/profile/:id", (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    db.query("DELETE FROM users WHERE id = ?", [userId], (err, results) => {
+      if (err) {
+        console.error("❌ Database DELETE error:", err);
+        return res.status(500).json({ message: "Error deleting profile" });
+      }
+      
+      if (results.affectedRows === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.status(200).json({ message: "Profile deleted successfully" });
+    });
+  } catch (error) {
+    console.error("❌ Unexpected server error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 
 app.listen(5000, () => console.log("🚀 Server running on port 5000"));
