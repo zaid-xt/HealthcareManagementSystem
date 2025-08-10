@@ -113,12 +113,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateProfile = async (updatedUser: User): Promise<void> => {
-    // Implement your profile update logic here if your backend supports it.
-    // For now, just update local state and storage:
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-  };
+ // Update the updateProfile function in AuthContext.tsx
+const updateProfile = async (updatedUser: User): Promise<void> => {
+  setIsLoading(true);
+  setError(null);
+
+  try {
+    const response = await fetch('http://localhost:5000/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: user?.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        doctorId: updatedUser.doctorId,
+        role: user?.role
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || 'Profile update failed');
+      setIsLoading(false);
+      throw new Error(data.message || 'Profile update failed');
+    }
+
+    // Update local state and storage
+    const newUser = { ...user, ...updatedUser };
+    setUser(newUser);
+    localStorage.setItem('user', JSON.stringify(newUser));
+    setIsLoading(false);
+  } catch (err) {
+    setError('Network error during profile update');
+    setIsLoading(false);
+    throw err;
+  }
+};
 
   const logout = () => {
     setUser(null);
