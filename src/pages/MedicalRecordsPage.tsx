@@ -1,59 +1,92 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FileText, Plus, Search, Filter, Edit2, Eye, X, Trash2 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
-import EditMedicalRecordForm from '../components/medical-records/EditMedicalRecordForm';
 import AddMedicalRecordForm from '../components/medical-records/AddMedicalRecordForm';
+import EditMedicalRecordForm from '../components/medical-records/EditMedicalRecordForm';
 import ViewMedicalRecord from '../components/medical-records/ViewMedicalRecord';
 import { useAuth } from '../context/AuthContext';
-import { medicalRecords, patients, doctors } from '../utils/mockData';
+import { doctors, patients } from '../utils/mockData';
+import {
+  fetchMedicalRecords,
+  addMedicalRecord,
+  updateMedicalRecord,
+  deleteMedicalRecord,
+} from '../api/medicalRecordsApi';
 import type { MedicalRecord } from '../types';
 
 const MedicalRecordsPage: React.FC = () => {
   const { user } = useAuth();
+
+  // Properly type medicalRecords state as array of MedicalRecord
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<MedicalRecord | null>(null);
   const [isAddingRecord, setIsAddingRecord] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<MedicalRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
     doctorId: '',
-    diagnosis: ''
+    diagnosis: '',
   });
-  const [recordToDelete, setRecordToDelete] = useState<MedicalRecord | null>(null);
 
-  const handleSaveRecord = (updatedRecord: MedicalRecord) => {
-    // In a real app, this would make an API call to update the record
-    const recordIndex = medicalRecords.findIndex(r => r.id === updatedRecord.id);
-    if (recordIndex !== -1) {
-      medicalRecords[recordIndex] = updatedRecord;
+  useEffect(() => {
+    loadRecords();
+  }, []);
+
+  const loadRecords = async () => {
+    try {
+      setIsLoading(true);
+      const data = await fetchMedicalRecords();
+      setMedicalRecords(data);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsLoading(false);
     }
-    setEditingRecord(null);
   };
 
-  const handleAddRecord = (newRecord: MedicalRecord) => {
-    // In a real app, this would make an API call to create the record
-    medicalRecords.push(newRecord);
-    setIsAddingRecord(false);
+  const handleAddRecord = async (newRecord: MedicalRecord) => {
+    try {
+      const savedRecord = await addMedicalRecord(newRecord);
+      setMedicalRecords((prev) => [...prev, savedRecord]);
+      setIsAddingRecord(false);
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
-  const handleDeleteRecord = () => {
+  const handleSaveRecord = async (updatedRecord: MedicalRecord) => {
+    try {
+      await updateMedicalRecord(updatedRecord.id, updatedRecord);
+      setMedicalRecords((prev) =>
+        prev.map((r) => (r.id === updatedRecord.id ? updatedRecord : r))
+      );
+      setEditingRecord(null);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteRecord = async () => {
     if (!recordToDelete) return;
-    
-    // In a real app, this would make an API call to delete the record
-    const recordIndex = medicalRecords.findIndex(r => r.id === recordToDelete.id);
-    if (recordIndex !== -1) {
-      medicalRecords.splice(recordIndex, 1);
+    try {
+      await deleteMedicalRecord(recordToDelete.id);
+      setMedicalRecords((prev) => prev.filter((r) => r.id !== recordToDelete.id));
+      setRecordToDelete(null);
+    } catch (err: any) {
+      alert(err.message);
     }
-    setRecordToDelete(null);
   };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const resetFilters = () => {
@@ -61,45 +94,39 @@ const MedicalRecordsPage: React.FC = () => {
       startDate: '',
       endDate: '',
       doctorId: '',
-      diagnosis: ''
+      diagnosis: '',
     });
     setShowFilters(false);
   };
 
-  const filteredRecords = medicalRecords.filter(record => {
-    const patient = patients.find(p => p.id === record.patientId);
+  const filteredRecords = medicalRecords.filter((record) => {
+    const patient = patients.find((p) => p.id === record.patientId);
     const searchString = `${patient?.firstName} ${patient?.lastName} ${record.diagnosis}`.toLowerCase();
     const matchesSearch = searchString.includes(searchTerm.toLowerCase());
-    
-    const matchesDateRange = (!filters.startDate || record.date >= filters.startDate) &&
-                           (!filters.endDate || record.date <= filters.endDate);
-    
+
+    const matchesDateRange =
+      (!filters.startDate || record.date >= filters.startDate) &&
+      (!filters.endDate || record.date <= filters.endDate);
+
     const matchesDoctor = !filters.doctorId || record.doctorId === filters.doctorId;
-    
-    const matchesDiagnosis = !filters.diagnosis || 
-                            record.diagnosis.toLowerCase().includes(filters.diagnosis.toLowerCase());
-    
+
+    const matchesDiagnosis =
+      !filters.diagnosis ||
+      record.diagnosis.toLowerCase().includes(filters.diagnosis.toLowerCase());
+
     return matchesSearch && matchesDateRange && matchesDoctor && matchesDiagnosis;
   });
 
   const renderContent = () => {
     if (viewingRecord) {
-      return (
-        <ViewMedicalRecord
-          record={viewingRecord}
-          onClose={() => setViewingRecord(null)}
-        />
-      );
+      return <ViewMedicalRecord record={viewingRecord} onClose={() => setViewingRecord(null)} />;
     }
 
     if (isAddingRecord) {
       return (
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Add New Medical Record</h2>
-          <AddMedicalRecordForm
-            onSave={handleAddRecord}
-            onCancel={() => setIsAddingRecord(false)}
-          />
+          <AddMedicalRecordForm onSave={handleAddRecord} onCancel={() => setIsAddingRecord(false)} />
         </div>
       );
     }
@@ -115,6 +142,10 @@ const MedicalRecordsPage: React.FC = () => {
           />
         </div>
       );
+    }
+
+    if (isLoading) {
+      return <p className="p-6">Loading...</p>;
     }
 
     return (
@@ -144,30 +175,31 @@ const MedicalRecordsPage: React.FC = () => {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredRecords.map((record) => {
-              const patient = patients.find(p => p.id === record.patientId);
-              const doctor = doctors.find(d => d.id === record.doctorId);
-              
+              const patient = patients.find((p) => p.id === record.patientId);
+              const doctor = doctors.find((d) => d.id === record.doctorId);
+
               return (
                 <tr key={record.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                         <span className="font-medium text-sm">
-                          {patient?.firstName[0]}{patient?.lastName[0]}
+                          {patient?.firstName[0]}
+                          {patient?.lastName[0]}
                         </span>
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
                           {patient?.firstName} {patient?.lastName}
                         </div>
-                        <div className="text-sm text-gray-500">
-                          ID: {patient?.id}
-                        </div>
+                        <div className="text-sm text-gray-500">ID: {patient?.id}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">Dr. {doctor?.firstName} {doctor?.lastName}</div>
+                    <div className="text-sm text-gray-900">
+                      Dr. {doctor?.firstName} {doctor?.lastName}
+                    </div>
                     <div className="text-sm text-gray-500">{doctor?.specialization}</div>
                   </td>
                   <td className="px-6 py-4">
@@ -224,10 +256,8 @@ const MedicalRecordsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      
       <div className="flex">
         <Sidebar />
-        
         <main className="flex-1 p-8">
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
@@ -235,10 +265,7 @@ const MedicalRecordsPage: React.FC = () => {
                 <FileText className="h-8 w-8 text-blue-600" />
                 <h1 className="text-3xl font-bold text-gray-900">Medical Records</h1>
               </div>
-              <Button 
-                leftIcon={<Plus className="h-4 w-4" />}
-                onClick={() => setIsAddingRecord(true)}
-              >
+              <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setIsAddingRecord(true)}>
                 Add New Record
               </Button>
             </div>
@@ -267,20 +294,13 @@ const MedicalRecordsPage: React.FC = () => {
               <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium text-gray-900">Filters</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    leftIcon={<X className="h-4 w-4" />}
-                    onClick={resetFilters}
-                  >
+                  <Button variant="ghost" size="sm" leftIcon={<X className="h-4 w-4" />} onClick={resetFilters}>
                     Reset
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Date
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                     <input
                       type="date"
                       name="startDate"
@@ -290,9 +310,7 @@ const MedicalRecordsPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Date
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
                     <input
                       type="date"
                       name="endDate"
@@ -302,9 +320,7 @@ const MedicalRecordsPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Doctor
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
                     <select
                       name="doctorId"
                       value={filters.doctorId}
@@ -312,7 +328,7 @@ const MedicalRecordsPage: React.FC = () => {
                       className="w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">All Doctors</option>
-                      {doctors.map(doctor => (
+                      {doctors.map((doctor) => (
                         <option key={doctor.id} value={doctor.id}>
                           Dr. {doctor.firstName} {doctor.lastName}
                         </option>
@@ -320,9 +336,7 @@ const MedicalRecordsPage: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Diagnosis
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
                     <input
                       type="text"
                       name="diagnosis"
@@ -336,31 +350,21 @@ const MedicalRecordsPage: React.FC = () => {
               </div>
             )}
 
-            <div className="bg-white shadow-md rounded-lg overflow-hidden">
-              {renderContent()}
-            </div>
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">{renderContent()}</div>
 
             {/* Delete Confirmation Modal */}
             {recordToDelete && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">
-                    Delete Medical Record
-                  </h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Medical Record</h3>
                   <p className="text-gray-500 mb-6">
                     Are you sure you want to delete this medical record? This action cannot be undone.
                   </p>
                   <div className="flex justify-end space-x-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setRecordToDelete(null)}
-                    >
+                    <Button variant="outline" onClick={() => setRecordToDelete(null)}>
                       Cancel
                     </Button>
-                    <Button
-                      variant="danger"
-                      onClick={handleDeleteRecord}
-                    >
+                    <Button variant="danger" onClick={handleDeleteRecord}>
                       Delete
                     </Button>
                   </div>
