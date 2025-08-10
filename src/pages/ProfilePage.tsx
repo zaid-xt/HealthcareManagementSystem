@@ -6,7 +6,7 @@ import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
-import ConfirmationModal from '../components/ui/ConfirmationModal';
+import ConfirmationModal from '../components/ui/ConfirmationModal'
 
 const ProfilePage: React.FC = () => {
   const { user, updateProfile, deleteProfile, logout } = useAuth();
