@@ -31,7 +31,7 @@ const AddMedicalRecordForm: React.FC<AddMedicalRecordFormProps> = ({
 
     const newRecord = {
       patientId: formData.patientId,
-      doctorId: formData.doctorId,
+      doctorId: user?.id,
       date: new Date().toISOString(),
       diagnosis: formData.diagnosis,
       symptoms: formData.symptoms.split(',').map((s) => s.trim()),

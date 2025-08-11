@@ -196,12 +196,16 @@ const MedicalRecordsPage: React.FC = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      Dr. {doctor?.firstName} {doctor?.lastName}
-                    </div>
-                    <div className="text-sm text-gray-500">{doctor?.specialization}</div>
-                  </td>
+                  <td>
+  {user && record.doctorId === user.id
+    ? `Dr. ${user.name}` // or user.firstName + user.lastName if available
+    : (() => {
+        const doctor = doctors.find((d) => d.id === record.doctorId);
+        return doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Unknown Doctor';
+      })()
+  }
+</td>
+
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">{record.diagnosis}</div>
                     <div className="text-sm text-gray-500">
