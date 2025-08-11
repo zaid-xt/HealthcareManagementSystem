@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; 
 import { Save, X } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useAuth } from '../../context/AuthContext';
-import { doctors, patients } from '../../utils/mockData';
 
 interface AddMedicalRecordFormProps {
-  onSave: (newRecord: any) => void; // accept object without id
+  onSave: (newRecord: any) => void;
   onCancel: () => void;
   preselectedPatientId?: string;
 }
@@ -17,21 +16,54 @@ const AddMedicalRecordForm: React.FC<AddMedicalRecordFormProps> = ({
   preselectedPatientId,
 }) => {
   const { user } = useAuth();
+
+  const [patients, setPatients] = useState<{id: string; name: string}[]>([]);
+  const [doctors, setDoctors] = useState<{id: string; firstName: string; lastName: string; specialization?: string}[]>([]);
+
   const [formData, setFormData] = useState({
     patientId: preselectedPatientId || '',
-    doctorId: user?.role === 'doctor' ? user.id : '',
+    doctorId: '', // Will be set automatically for doctors on submit
     diagnosis: '',
     symptoms: '',
     treatment: '',
     notes: '',
   });
 
+  useEffect(() => {
+    async function fetchPatients() {
+      try {
+        const res = await fetch('http://localhost:5000/api/patients');
+        if (!res.ok) throw new Error('Failed to fetch patients');
+        const data = await res.json();
+        setPatients(data);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    async function fetchDoctors() {
+      try {
+        const res = await fetch('http://localhost:5000/api/doctors');
+        if (!res.ok) throw new Error('Failed to fetch doctors');
+        const data = await res.json();
+        setDoctors(data);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    fetchPatients();
+    if (user?.role !== 'doctor') {
+      fetchDoctors();
+    }
+  }, [user]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     const newRecord = {
       patientId: formData.patientId,
-      doctorId: user?.id,
+      doctorId: user?.role === 'doctor' ? user.id : formData.doctorId,
       date: new Date().toISOString(),
       diagnosis: formData.diagnosis,
       symptoms: formData.symptoms.split(',').map((s) => s.trim()),
@@ -63,13 +95,14 @@ const AddMedicalRecordForm: React.FC<AddMedicalRecordFormProps> = ({
               <option value="">Select a patient</option>
               {patients.map((patient) => (
                 <option key={patient.id} value={patient.id}>
-                  {patient.firstName} {patient.lastName}
+                  {patient.name} (ID: {patient.id})
                 </option>
               ))}
             </select>
           </div>
         )}
 
+        {/* Show doctor selector only if user is NOT a doctor */}
         {user?.role !== 'doctor' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -86,7 +119,8 @@ const AddMedicalRecordForm: React.FC<AddMedicalRecordFormProps> = ({
               <option value="">Select a doctor</option>
               {doctors.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
-                  Dr. {doctor.firstName} {doctor.lastName} - {doctor.specialization}
+                  Dr. {doctor.firstName} {doctor.lastName}
+                  {doctor.specialization ? ` - ${doctor.specialization}` : ''}
                 </option>
               ))}
             </select>

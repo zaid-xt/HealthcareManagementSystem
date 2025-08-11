@@ -315,5 +315,15 @@ app.delete('/api/medical-records/:id', (req, res) => {
   });
 });
 
+app.get('/api/patients', (req, res) => {
+  const sql = "SELECT id, name, email FROM users WHERE role = 'patient'";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('DB error fetching patients:', err);
+      return res.status(500).json({ message: 'Failed to fetch patients' });
+    }
+    res.json(results);
+  });
+});
 
 app.listen(5000, () => console.log("🚀 Server running on port 5000"));

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'; 
 import { FileText, Plus, Search, Filter, Edit2, Eye, X, Trash2 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
@@ -7,7 +7,6 @@ import AddMedicalRecordForm from '../components/medical-records/AddMedicalRecord
 import EditMedicalRecordForm from '../components/medical-records/EditMedicalRecordForm';
 import ViewMedicalRecord from '../components/medical-records/ViewMedicalRecord';
 import { useAuth } from '../context/AuthContext';
-import { doctors, patients } from '../utils/mockData';
 import {
   fetchMedicalRecords,
   addMedicalRecord,
@@ -19,7 +18,6 @@ import type { MedicalRecord } from '../types';
 const MedicalRecordsPage: React.FC = () => {
   const { user } = useAuth();
 
-  // Properly type medicalRecords state as array of MedicalRecord
   const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
@@ -35,8 +33,15 @@ const MedicalRecordsPage: React.FC = () => {
     diagnosis: '',
   });
 
+  // Assuming patients and doctors come from API or global state
+  // Here we fetch them from endpoints for this example
+  const [patients, setPatients] = useState<{ id: string; name: string }[]>([]);
+  const [doctors, setDoctors] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
+
   useEffect(() => {
     loadRecords();
+    loadPatients();
+    loadDoctors();
   }, []);
 
   const loadRecords = async () => {
@@ -48,6 +53,37 @@ const MedicalRecordsPage: React.FC = () => {
       alert(err.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadPatients = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/patients');
+      if (!res.ok) throw new Error('Failed to load patients');
+      const data = await res.json();
+      // Make sure id is string
+      const formatted = data.map((p: any) => ({
+        ...p,
+        id: String(p.id),
+      }));
+      setPatients(formatted);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const loadDoctors = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/doctors');
+      if (!res.ok) throw new Error('Failed to load doctors');
+      const data = await res.json();
+      const formatted = data.map((d: any) => ({
+        ...d,
+        id: String(d.id),
+      }));
+      setDoctors(formatted);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -100,15 +136,15 @@ const MedicalRecordsPage: React.FC = () => {
   };
 
   const filteredRecords = medicalRecords.filter((record) => {
-    const patient = patients.find((p) => p.id === record.patientId);
-    const searchString = `${patient?.firstName} ${patient?.lastName} ${record.diagnosis}`.toLowerCase();
+    const patient = patients.find((p) => String(p.id) === String(record.patientId));
+    const searchString = `${patient?.name} ${record.diagnosis}`.toLowerCase();
     const matchesSearch = searchString.includes(searchTerm.toLowerCase());
 
     const matchesDateRange =
       (!filters.startDate || record.date >= filters.startDate) &&
       (!filters.endDate || record.date <= filters.endDate);
 
-    const matchesDoctor = !filters.doctorId || record.doctorId === filters.doctorId;
+    const matchesDoctor = !filters.doctorId || String(record.doctorId) === String(filters.doctorId);
 
     const matchesDiagnosis =
       !filters.diagnosis ||
@@ -175,42 +211,39 @@ const MedicalRecordsPage: React.FC = () => {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredRecords.map((record) => {
-              const patient = patients.find((p) => p.id === record.patientId);
-              const doctor = doctors.find((d) => d.id === record.doctorId);
+              const patient = patients.find((p) => String(p.id) === String(record.patientId));
+              const doctor = doctors.find((d) => String(d.id) === String(record.doctorId));
 
               return (
                 <tr key={record.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                        <span className="font-medium text-sm">
-                          {patient?.firstName[0]}
-                          {patient?.lastName[0]}
-                        </span>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {patient?.firstName} {patient?.lastName}
-                        </div>
-                        <div className="text-sm text-gray-500">ID: {patient?.id}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-  {user && record.doctorId === user.id
-    ? `Dr. ${user.name}` // or user.firstName + user.lastName if available
-    : (() => {
-        const doctor = doctors.find((d) => d.id === record.doctorId);
-        return doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Unknown Doctor';
-      })()
-  }
+  <div className="flex items-center">
+    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+      <span className="font-medium text-sm">
+        {patient?.name?.[0]}
+      </span>
+    </div>
+    <div className="ml-4">
+      <div className="text-sm font-medium text-gray-900">
+        {patient?.name || 'Unknown Patient'}
+      </div>
+      <div className="text-sm text-gray-500">Patient ID: {patient?.id || 'N/A'}</div>
+    </div>
+  </div>
 </td>
 
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user && String(record.doctorId) === String(user.id)
+                      ? `Dr. ${user.name}`
+                      : doctor
+                      ? `Dr. ${doctor.firstName} ${doctor.lastName}`
+                      : 'Unknown Doctor'}
+                  </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">{record.diagnosis}</div>
                     <div className="text-sm text-gray-500">
-                      {record.symptoms.slice(0, 2).join(', ')}
-                      {record.symptoms.length > 2 && '...'}
+                      {record.symptoms?.slice(0, 2).join(', ')}
+                      {record.symptoms && record.symptoms.length > 2 && '...'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
