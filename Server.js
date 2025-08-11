@@ -161,6 +161,159 @@ app.delete("/api/profile/:id", (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+function toMySQLDateTime(isoString) {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+// ... your existing imports and setup
+
+const serializeSymptoms = (symptoms) => JSON.stringify(symptoms);
+const deserializeSymptoms = (str) => {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return [];
+  }
+};
+
+// GET all medical records
+app.get('/api/medical-records', (req, res) => {
+  const sql = 'SELECT * FROM medical_records';
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('DB error fetching records:', err);
+      return res.status(500).json({ message: 'Failed to fetch records' });
+    }
+
+    const records = results.map(r => ({
+      ...r,
+      symptoms: deserializeSymptoms(r.symptoms),
+    }));
+
+    res.json(records);
+  });
+});
+
+// POST create new medical record
+app.post('/api/medical-records', (req, res) => {
+console.log('POST /api/medical-records body:', req.body);
+  const {
+    patientId,
+    doctorId,
+    diagnosis,
+    symptoms,
+    treatment,
+    notes,
+    date,
+    lastUpdated,
+    lastUpdatedBy,
+  } = req.body;
+
+  if (!patientId || !doctorId || !diagnosis) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  const sql = `
+    INSERT INTO medical_records
+    (patientId, doctorId, diagnosis, symptoms, treatment, notes, date, lastUpdated, lastUpdatedBy)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(
+    sql,
+    [
+      patientId,
+      doctorId,
+      diagnosis,
+      serializeSymptoms(symptoms || []),
+      treatment || '',
+      notes || '',
+     toMySQLDateTime(date) || toMySQLDateTime(new Date().toISOString()),
+     toMySQLDateTime(lastUpdated) || toMySQLDateTime(new Date().toISOString()),
+      lastUpdatedBy || '',
+    ],
+    (err, results) => {
+      if (err) {
+        console.error('DB error inserting record:', err);
+        return res.status(500).json({ message: 'Failed to add record' });
+      }
+      res.status(201).json({ id: results.insertId, ...req.body });
+    }
+  );
+});
+
+app.put('/api/medical-records/:id', (req, res) => {
+  const id = req.params.id;
+  const {
+    patientId,
+    doctorId,
+    diagnosis,
+    symptoms,
+    treatment,
+    notes,
+    date,
+    lastUpdated,
+    lastUpdatedBy,
+  } = req.body;
+
+  if (!patientId || !doctorId || !diagnosis) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  const mysqlDate = toMySQLDateTime(date) || toMySQLDateTime(new Date().toISOString());
+  const mysqlLastUpdated = toMySQLDateTime(lastUpdated) || mysqlDate;
+
+  const sql = `
+    UPDATE medical_records
+    SET patientId = ?, doctorId = ?, diagnosis = ?, symptoms = ?, treatment = ?, notes = ?, date = ?, lastUpdated = ?, lastUpdatedBy = ?
+    WHERE id = ?
+  `;
+
+  db.query(
+    sql,
+    [
+      patientId,
+      doctorId,
+      diagnosis,
+      JSON.stringify(symptoms || []),
+      treatment || '',
+      notes || '',
+      mysqlDate,
+      mysqlLastUpdated,
+      lastUpdatedBy || '',
+      id,
+    ],
+    (err, results) => {
+      if (err) {
+        console.error('DB error updating record:', err);
+        return res.status(500).json({ message: 'Failed to update record' });
+      }
+      if (results.affectedRows === 0) {
+        return res.status(404).json({ message: 'Record not found' });
+      }
+      res.json({ message: 'Record updated' });
+    }
+  );
+});
+
+// DELETE medical record by id
+app.delete('/api/medical-records/:id', (req, res) => {
+  const id = req.params.id;
+  const sql = 'DELETE FROM medical_records WHERE id = ?';
+
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('DB error deleting record:', err);
+      return res.status(500).json({ message: 'Failed to delete record' });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Record not found' });
+    }
+    res.json({ message: 'Record deleted' });
+  });
+});
 
 
 app.listen(5000, () => console.log("🚀 Server running on port 5000"));
