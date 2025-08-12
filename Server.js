@@ -26,14 +26,24 @@ db.connect(err => {
 });
 
 // Signup endpoint
+// In the signup endpoint, update the destructuring and SQL query:
 app.post("/api/signup", async (req, res) => {
   try {
-    // Remove specialization from destructuring
-    const { name, email, password, role, doctorId } = req.body;
+    const { name, email, password, role, doctorId, idNumber, contactNumber } = req.body;
     console.log("📥 Incoming signup data:", req.body);
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !idNumber || !contactNumber) {
       return res.status(400).json({ message: "Missing required fields" });
+    }
+
+      // Validate ID Number format
+    if (!/^\d{13}$/.test(idNumber)) {
+      return res.status(400).json({ message: "ID Number must be exactly 13 digits" });
+    }
+
+    // Validate Contact Number format
+    if (!/^\d{9}$/.test(contactNumber)) {
+      return res.status(400).json({ message: "Contact Number must be exactly 9 digits" });
     }
 
     db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
@@ -47,24 +57,32 @@ app.post("/api/signup", async (req, res) => {
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
-      // Update SQL query to remove specialization
-      const sql = `INSERT INTO users (name, email, password, role, doctorId)
-                   VALUES (?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO users (name, email, password, role, doctorId, idNumber, contactNumber)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
-      // Update parameters to remove specialization
-      db.query(sql, [name, email, hashedPassword, role, role === 'doctor' ? doctorId : null], (err) => {
-        if (err) {
-          console.error("❌ Database INSERT error:", err);
-          return res.status(500).json({ message: "Error creating account" });
+      db.query(sql, 
+        [
+          name, 
+          email, 
+          hashedPassword, 
+          role, 
+          role === 'doctor' ? doctorId : null, 
+          idNumber, 
+          contactNumber
+        ], 
+        (err) => {
+          if (err) {
+            console.error("❌ Database INSERT error:", err);
+            return res.status(500).json({ message: "Error creating account" });
+          }
+          res.status(201).json({ message: "Account created successfully" });
         }
-        res.status(201).json({ message: "Account created successfully" });
-      });
+      );
     });
   } catch (error) {
     console.error("❌ Unexpected server error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
-  
 });
 
 // Login endpoint
