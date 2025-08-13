@@ -7,11 +7,17 @@ export interface User {
   role: 'admin' | 'doctor' | 'patient';
   avatar?: string;
   permissions?: string[];
+  doctorId?: string;
+  specialization?: string;
+  idNumber: string;        
+  contactNumber: string;   
 }
 
 export interface Patient {
   id: string;
-  userId?: string; // Reference to user if patient has account
+  patientId: string;
+  doctorId?: string;
+  userId?: string;
   firstName: string;
   lastName: string;
   dateOfBirth: string;
@@ -20,6 +26,7 @@ export interface Patient {
   contactNumber: string;
   email: string;
   address: string;
+  status: 'active' | 'inactive' | 'pending' | 'discharged';
   emergencyContact: {
     name: string;
     relation: string;
@@ -151,6 +158,8 @@ export interface Message {
   content: string;
   timestamp: string;
   read: boolean;
+  status: 'sent' | 'delivered' | 'read' | 'archived' | 'deleted';
+  priority?: 'normal' | 'urgent';
   attachments?: {
     name: string;
     url: string;
@@ -160,6 +169,8 @@ export interface Message {
 // Permission types for role-based access control
 export type Permission =
   | 'manage_users'
+  | 'manage_doctors'
+  | 'manage_patients'
   | 'manage_wards'
   | 'manage_inventory'
   | 'manage_appointments'

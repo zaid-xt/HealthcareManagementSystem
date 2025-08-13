@@ -40,7 +40,9 @@ export const users: User[] = [
 export const patients: Patient[] = [
   {
     id: 'patient1',
+    patientId: 'P001',
     userId: 'user4',
+    doctorId: 'doctor1',
     firstName: 'Jane',
     lastName: 'Smith',
     dateOfBirth: '1985-06-15',
@@ -49,6 +51,7 @@ export const patients: Patient[] = [
     contactNumber: '555-1234',
     email: 'jane.smith@example.com',
     address: '123 Main St, Anytown, CA 94321',
+    status: 'active',
     emergencyContact: {
       name: 'John Smith',
       relation: 'Husband',
@@ -62,6 +65,8 @@ export const patients: Patient[] = [
   },
   {
     id: 'patient2',
+    patientId: 'P002',
+    doctorId: 'doctor2',
     firstName: 'Michael',
     lastName: 'Johnson',
     dateOfBirth: '1972-03-21',
@@ -70,6 +75,7 @@ export const patients: Patient[] = [
     contactNumber: '555-8765',
     email: 'michael.johnson@example.com',
     address: '456 Oak Ave, Somecity, CA 94322',
+    status: 'active',
     emergencyContact: {
       name: 'Lisa Johnson',
       relation: 'Wife',
@@ -78,6 +84,8 @@ export const patients: Patient[] = [
   },
   {
     id: 'patient3',
+    patientId: 'P003',
+    doctorId: 'doctor1',
     firstName: 'Emily',
     lastName: 'Chen',
     dateOfBirth: '1990-11-08',
@@ -86,6 +94,7 @@ export const patients: Patient[] = [
     contactNumber: '555-2468',
     email: 'emily.chen@example.com',
     address: '789 Pine St, Othertown, CA 94323',
+    status: 'active',
     emergencyContact: {
       name: 'Wei Chen',
       relation: 'Father',
@@ -95,6 +104,30 @@ export const patients: Patient[] = [
       provider: 'MediSecure',
       policyNumber: 'MS789012',
       expiryDate: '2025-10-15'
+    }
+  },
+  {
+    id: 'patient4',
+    patientId: 'P004',
+    doctorId: 'doctor1',
+    firstName: 'Catherine',
+    lastName: 'Jones',
+    dateOfBirth: '1988-09-12',
+    gender: 'female',
+    bloodType: 'A-',
+    contactNumber: '555-3579',
+    email: 'catherine.jones@example.com',
+    address: '321 Elm Street, Newtown, CA 94324',
+    status: 'active',
+    emergencyContact: {
+      name: 'David Jones',
+      relation: 'Brother',
+      contactNumber: '555-4680'
+    },
+    insuranceDetails: {
+      provider: 'CareFirst',
+      policyNumber: 'CF456789',
+      expiryDate: '2025-11-30'
     }
   }
 ];
@@ -146,7 +179,8 @@ export const appointments: Appointment[] = [
     endTime: '10:30',
     status: 'scheduled',
     type: 'regular',
-    notes: 'Follow-up on recent blood tests'
+    notes: 'Follow-up on recent blood tests',
+    createdBy: 'user1'
   },
   {
     id: 'appt2',
@@ -157,7 +191,8 @@ export const appointments: Appointment[] = [
     endTime: '11:30',
     status: 'scheduled',
     type: 'follow-up',
-    notes: 'Review of MRI results'
+    notes: 'Review of MRI results',
+    createdBy: 'user1'
   },
   {
     id: 'appt3',
@@ -167,7 +202,20 @@ export const appointments: Appointment[] = [
     startTime: '09:30',
     endTime: '10:00',
     status: 'completed',
-    type: 'regular'
+    type: 'regular',
+    createdBy: 'user1'
+  },
+  {
+    id: 'appt4',
+    patientId: 'patient4',
+    doctorId: 'doctor1',
+    date: '2025-06-17',
+    startTime: '14:00',
+    endTime: '14:30',
+    status: 'scheduled',
+    type: 'regular',
+    notes: 'Initial consultation for chest pain',
+    createdBy: 'user1'
   }
 ];
 
@@ -179,7 +227,8 @@ export const wards: Ward[] = [
     type: 'general',
     floorNumber: 2,
     totalBeds: 20,
-    availableBeds: 7
+    availableBeds: 7,
+    managedBy: 'user1'
   },
   {
     id: 'ward2',
@@ -187,7 +236,8 @@ export const wards: Ward[] = [
     type: 'icu',
     floorNumber: 3,
     totalBeds: 10,
-    availableBeds: 2
+    availableBeds: 2,
+    managedBy: 'user1'
   },
   {
     id: 'ward3',
@@ -195,7 +245,8 @@ export const wards: Ward[] = [
     type: 'maternity',
     floorNumber: 4,
     totalBeds: 15,
-    availableBeds: 6
+    availableBeds: 6,
+    managedBy: 'user1'
   }
 ];
 
@@ -209,7 +260,8 @@ export const admittances: Admittance[] = [
     admissionDate: '2025-06-10',
     status: 'admitted',
     doctorId: 'doctor1',
-    reason: 'Post-operative recovery'
+    reason: 'Post-operative recovery',
+    authorizedBy: 'user1'
   },
   {
     id: 'adm2',
@@ -219,7 +271,8 @@ export const admittances: Admittance[] = [
     admissionDate: '2025-06-12',
     status: 'admitted',
     doctorId: 'doctor2',
-    reason: 'Stroke monitoring'
+    reason: 'Stroke monitoring',
+    authorizedBy: 'user1'
   }
 ];
 
@@ -233,7 +286,9 @@ export const medicalRecords: MedicalRecord[] = [
     diagnosis: 'Hypertension',
     symptoms: ['Headache', 'Dizziness', 'Fatigue'],
     treatment: 'Prescribed Lisinopril 10mg daily',
-    notes: 'Patient to monitor blood pressure daily and return in 2 weeks'
+    notes: 'Patient to monitor blood pressure daily and return in 2 weeks',
+    lastUpdated: '2025-06-01',
+    lastUpdatedBy: 'doctor1'
   },
   {
     id: 'rec2',
@@ -243,7 +298,21 @@ export const medicalRecords: MedicalRecord[] = [
     diagnosis: 'Migraines',
     symptoms: ['Severe headache', 'Visual aura', 'Nausea'],
     treatment: 'Sumatriptan as needed for acute attacks',
-    notes: 'Recommended lifestyle modifications to identify triggers'
+    notes: 'Recommended lifestyle modifications to identify triggers',
+    lastUpdated: '2025-06-05',
+    lastUpdatedBy: 'doctor2'
+  },
+  {
+    id: 'rec3',
+    patientId: 'patient4',
+    doctorId: 'doctor1',
+    date: '2025-06-10',
+    diagnosis: 'Chest Pain - Non-cardiac',
+    symptoms: ['Chest discomfort', 'Shortness of breath', 'Anxiety'],
+    treatment: 'Stress management techniques and follow-up in 2 weeks',
+    notes: 'EKG and chest X-ray normal. Likely stress-related chest pain.',
+    lastUpdated: '2025-06-10',
+    lastUpdatedBy: 'doctor1'
   }
 ];
 
@@ -256,7 +325,8 @@ export const labs: Lab[] = [
     testType: 'Complete Blood Count',
     date: '2025-06-05',
     results: 'WBC: 7.5, RBC: 4.8, Hemoglobin: 14.2, Hematocrit: 42%',
-    status: 'completed'
+    status: 'completed',
+    requestedBy: 'doctor1'
   },
   {
     id: 'lab2',
@@ -264,7 +334,18 @@ export const labs: Lab[] = [
     doctorId: 'doctor2',
     testType: 'MRI Brain',
     date: '2025-06-14',
-    status: 'pending'
+    status: 'pending',
+    requestedBy: 'doctor2'
+  },
+  {
+    id: 'lab3',
+    patientId: 'patient4',
+    doctorId: 'doctor1',
+    testType: 'Cardiac Enzymes',
+    date: '2025-06-10',
+    results: 'Troponin I: <0.04 ng/mL (Normal), CK-MB: 2.1 ng/mL (Normal)',
+    status: 'completed',
+    requestedBy: 'doctor1'
   }
 ];
 
@@ -277,7 +358,9 @@ export const medicines: Medicine[] = [
     dosageForm: 'tablet',
     manufacturer: 'PharmaCorp',
     availableQuantity: 500,
-    unitPrice: 0.85
+    unitPrice: 0.85,
+    expiryDate: '2025-12-31',
+    lastUpdatedBy: 'user1'
   },
   {
     id: 'med2',
@@ -286,7 +369,9 @@ export const medicines: Medicine[] = [
     dosageForm: 'tablet',
     manufacturer: 'MediHealth',
     availableQuantity: 200,
-    unitPrice: 12.50
+    unitPrice: 12.50,
+    expiryDate: '2025-12-31',
+    lastUpdatedBy: 'user1'
   },
   {
     id: 'med3',
@@ -295,7 +380,9 @@ export const medicines: Medicine[] = [
     dosageForm: 'capsule',
     manufacturer: 'GeneriCo',
     availableQuantity: 350,
-    unitPrice: 0.65
+    unitPrice: 0.65,
+    expiryDate: '2025-12-31',
+    lastUpdatedBy: 'user1'
   }
 ];
 
@@ -307,7 +394,8 @@ export const prescriptions: Prescription[] = [
     doctorId: 'doctor1',
     date: '2025-06-01',
     status: 'active',
-    notes: 'For blood pressure management'
+    notes: 'For blood pressure management',
+    createdBy: 'doctor1'
   },
   {
     id: 'presc2',
@@ -315,7 +403,8 @@ export const prescriptions: Prescription[] = [
     doctorId: 'doctor2',
     date: '2025-06-05',
     status: 'active',
-    notes: 'For migraine management'
+    notes: 'For migraine management',
+    createdBy: 'doctor2'
   }
 ];
 
@@ -340,5 +429,42 @@ export const orderLines: OrderLine[] = [
     duration: '30 days',
     quantity: 9,
     instructions: 'Take at onset of migraine. Do not exceed 9 tablets per month'
+  }
+];
+
+// Mock messages data
+export const messages: Message[] = [
+  {
+    id: 'msg1',
+    senderId: 'user2', // doctor
+    receiverId: 'user4', // patient
+    subject: 'Follow-up Appointment Results',
+    content: 'Your recent test results look good. Keep up with the prescribed medication.',
+    timestamp: new Date().toISOString(),
+    read: false,
+    status: 'sent',
+    priority: 'normal'
+  },
+  {
+    id: 'msg2',
+    senderId: 'user4', // patient
+    receiverId: 'user2', // doctor
+    subject: 'Question about Medication',
+    content: 'I\'ve been experiencing some side effects from the new medication.',
+    timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+    read: true,
+    status: 'read',
+    priority: 'urgent'
+  },
+  {
+    id: 'msg3',
+    senderId: 'user2', // doctor
+    receiverId: 'user4', // patient
+    subject: 'Urgent: Lab Results Review',
+    content: 'Please schedule an appointment to discuss your recent lab results.',
+    timestamp: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+    read: true,
+    status: 'archived',
+    priority: 'urgent'
   }
 ];

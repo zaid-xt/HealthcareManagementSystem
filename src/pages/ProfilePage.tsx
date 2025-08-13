@@ -1,61 +1,60 @@
 import React, { useState } from 'react';
-import { User, Save, X } from 'lucide-react';
+import { User, Save, X, Stethoscope, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
-import { doctors } from '../utils/mockData';
+import ConfirmationModal from '../components/ui/ConfirmationModal'
 
 const ProfilePage: React.FC = () => {
-  const { user, updateProfile } = useAuth();
-  const doctor = doctors.find(d => d.userId === user?.id);
+  const { user, updateProfile, deleteProfile, logout } = useAuth();
+  const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
-    firstName: doctor?.firstName || '',
-    lastName: doctor?.lastName || '',
-    specialization: doctor?.specialization || '',
-    department: doctor?.department || '',
-    contactNumber: doctor?.contactNumber || '',
-    email: user?.email || '',
-  });
+  name: user?.name || '',
+  email: user?.email || '',
+  doctorId: user?.doctorId || '',
+  idNumber: user?.idNumber || '', 
+  contactNumber: user?.contactNumber || '' 
+});
+
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
     try {
-      // In a real app, this would make an API call
-      const doctorIndex = doctors.findIndex(d => d.userId === user?.id);
-      if (doctorIndex !== -1) {
-        doctors[doctorIndex] = {
-          ...doctors[doctorIndex],
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          specialization: formData.specialization,
-          department: formData.department,
-          contactNumber: formData.contactNumber,
-          email: formData.email
-        };
-      }
-
-      // Update user name in auth context
       if (user) {
         await updateProfile({
           ...user,
-          name: `${formData.firstName} ${formData.lastName}`,
-          email: formData.email
+          name: formData.name,
+          email: formData.email,
+          doctorId: user.role === 'doctor' ? formData.doctorId : null,
+          idNumber: formData.idNumber, 
+          contactNumber: formData.contactNumber
         });
       }
-
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to update profile:', error);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    try {
+      await deleteProfile();
+      logout();
+      navigate('/');
+    } catch (error) {
+      console.error('Failed to delete profile:', error);
     }
   };
 
@@ -70,13 +69,26 @@ const ProfilePage: React.FC = () => {
           <div className="max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <div className="flex items-center gap-3">
-                <User className="h-8 w-8 text-blue-600" />
+                {user?.role === 'doctor' ? (
+                  <Stethoscope className="h-8 w-8 text-blue-600" />
+                ) : (
+                  <User className="h-8 w-8 text-blue-600" />
+                )}
                 <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
               </div>
               {!isEditing && (
-                <Button onClick={() => setIsEditing(true)}>
-                  Edit Profile
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => setIsEditing(true)}>
+                    Edit Profile
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={() => setShowDeleteModal(true)}
+                    leftIcon={<Trash2 className="h-4 w-4" />}
+                  >
+                    Delete Profile
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -84,20 +96,24 @@ const ProfilePage: React.FC = () => {
               <div className="p-6">
                 {isEditing ? (
                   <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <Input
-                        label="First Name"
-                        value={formData.firstName}
-                        onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                        required
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                      <div className="md:col-span-1">
+                        <Input
+                          label="Full Name"
+                          value={formData.name}
+                          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                          required
+                        />
+                      </div>
                       
-                      <Input
-                        label="Last Name"
-                        value={formData.lastName}
-                        onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                        required
-                      />
+                      {user?.role === 'doctor' && (
+                        <Input
+                          label="Doctor ID"
+                          value={formData.doctorId}
+                          onChange={(e) => setFormData(prev => ({ ...prev, doctorId: e.target.value }))}
+                          required
+                        />
+                      )}
                       
                       <Input
                         label="Email"
@@ -106,31 +122,30 @@ const ProfilePage: React.FC = () => {
                         onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                         required
                       />
-                      
+
+                      <Input
+                        label="ID Number"
+                        value={formData.idNumber}
+                        onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        setFormData(prev => ({ ...prev, idNumber: value }));
+                        }}
+                        maxLength={13}
+                        placeholder="13 digit number"
+                        required
+                      />
+      
                       <Input
                         label="Contact Number"
                         value={formData.contactNumber}
-                        onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value }))}
+                        onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        setFormData(prev => ({ ...prev, contactNumber: value }));
+                     }}
+                        maxLength={10}
+                        placeholder="10 digit number"
                         required
                       />
-                      
-                      {user?.role === 'doctor' && (
-                        <>
-                          <Input
-                            label="Specialization"
-                            value={formData.specialization}
-                            onChange={(e) => setFormData(prev => ({ ...prev, specialization: e.target.value }))}
-                            required
-                          />
-                          
-                          <Input
-                            label="Department"
-                            value={formData.department}
-                            onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
-                            required
-                          />
-                        </>
-                      )}
                     </div>
 
                     <div className="flex justify-end space-x-4">
@@ -156,47 +171,65 @@ const ProfilePage: React.FC = () => {
                     <div className="flex items-center">
                       <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                         <span className="text-2xl font-medium">
-                          {formData.firstName[0]}{formData.lastName[0]}
+                          {(formData.name || '')
+                            .split(' ')
+                            .map(n => n[0] || '')
+                            .join('')
+                            .toUpperCase()
+                            .slice(0, 2)}
                         </span>
                       </div>
                       <div className="ml-6">
                         <h2 className="text-2xl font-bold text-gray-900">
-                          {user?.role === 'doctor' ? 'Dr. ' : ''}{formData.firstName} {formData.lastName}
+                          {user?.role === 'doctor' ? 'Dr. ' : ''}{formData.name}
                         </h2>
                         <p className="text-gray-500 capitalize">{user?.role}</p>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500">Full Name</h3>
+                        <p className="mt-1 text-sm text-gray-900">{formData.name}</p>
+                      </div>
+                      
+                      {user?.role === 'doctor' && (
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">Doctor ID</h3>
+                          <p className="mt-1 text-sm text-gray-900">{formData.doctorId}</p>
+                        </div>
+                      )}
+                      
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Email</h3>
                         <p className="mt-1 text-sm text-gray-900">{formData.email}</p>
                       </div>
-                      
+
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500">ID Number</h3>
+                        <p className="mt-1 text-sm text-gray-900">{formData.idNumber}</p>
+                      </div>
+      
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Contact Number</h3>
                         <p className="mt-1 text-sm text-gray-900">{formData.contactNumber}</p>
-                      </div>
-                      
-                      {user?.role === 'doctor' && (
-                        <>
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-500">Specialization</h3>
-                            <p className="mt-1 text-sm text-gray-900">{formData.specialization}</p>
-                          </div>
-                          
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-500">Department</h3>
-                            <p className="mt-1 text-sm text-gray-900">{formData.department}</p>
-                          </div>
-                        </>
-                      )}
+                    </div>
                     </div>
                   </div>
                 )}
               </div>
             </div>
           </div>
+
+          <ConfirmationModal
+            isOpen={showDeleteModal}
+            onClose={() => setShowDeleteModal(false)}
+            onConfirm={handleDeleteProfile}
+            title="Delete Profile"
+            message="Are you sure you want to permanently delete your profile? This action cannot be undone."
+            confirmText="Delete Profile"
+            confirmVariant="danger"
+          />
         </main>
       </div>
     </div>

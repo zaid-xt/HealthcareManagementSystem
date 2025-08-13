@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, UserPlus } from 'lucide-react';
+import { Mail, Lock, User, UserPlus, Phone, BadgeCheck } from 'lucide-react';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -11,11 +11,17 @@ const SignUpForm: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<'patient' | 'doctor'>('patient');
+  const [doctorId, setDoctorId] = useState('');
+  const [idNumber, setIdNumber] = useState(''); 
+  const [contactNumber, setContactNumber] = useState(''); 
   const [formErrors, setFormErrors] = useState({
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    doctorId: '',
+    idNumber: '', 
+    contactNumber: '' 
   });
   
   const { register, isLoading, error } = useAuth();
@@ -27,7 +33,10 @@ const SignUpForm: React.FC = () => {
       name: '',
       email: '',
       password: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      doctorId: '',
+      idNumber: '', 
+      contactNumber: '' 
     };
 
     if (!name) {
@@ -56,26 +65,69 @@ const SignUpForm: React.FC = () => {
       isValid = false;
     }
 
+    if (role === 'doctor' && !doctorId) {
+      errors.doctorId = 'Doctor ID is required';
+      isValid = false;
+    }
+
+     if (!idNumber) {
+    errors.idNumber = 'ID Number is required';
+    isValid = false;
+  } else if (!/^\d{13}$/.test(idNumber)) {  
+    errors.idNumber = 'ID Number must be exactly 13 digits';
+    isValid = false;
+  }
+
+  if (!contactNumber) {
+    errors.contactNumber = 'Contact Number is required';
+    isValid = false;
+  } else if (!/^\d{10}$/.test(contactNumber)) {  
+    errors.contactNumber = 'Contact Number must be exactly 10 digits';
+    isValid = false;
+  }
+
     setFormErrors(errors);
     return isValid;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
-    
-    const success = await register(email, name, password, role);
-    if (success) {
-      navigate('/dashboard');
+
+    try {
+      const res = await fetch("http://localhost:5000/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          role,
+          doctorId: role === "doctor" ? doctorId : null,
+          idNumber, 
+          contactNumber 
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alert("Account created successfully!");
+        navigate("/dashboard");
+      } else {
+        alert(data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong. Please try again.");
     }
   };
 
   return (
     <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg">
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-gray-900">Create account</h2>
-        <p className="mt-2 text-gray-600">Sign up for a new account</p>
+        <h2 className="text-3xl font-bold text-gray-900">Create Account</h2>
+        <p className="mt-2 text-gray-600">Sign Up For A New Account</p>
       </div>
       
       {error && (
@@ -87,7 +139,7 @@ const SignUpForm: React.FC = () => {
       <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
         <div className="space-y-4">
           <Input
-            label="Full name"
+            label="Full Name"
             type="text"
             id="name"
             value={name}
@@ -100,7 +152,7 @@ const SignUpForm: React.FC = () => {
           />
           
           <Input
-            label="Email address"
+            label="Email Address"
             type="email"
             id="email"
             value={email}
@@ -126,7 +178,7 @@ const SignUpForm: React.FC = () => {
           />
           
           <Input
-            label="Confirm password"
+            label="Confirm Password"
             type="password"
             id="confirmPassword"
             value={confirmPassword}
@@ -138,8 +190,41 @@ const SignUpForm: React.FC = () => {
             autoComplete="new-password"
           />
           
+        <Input
+          label="ID Number"
+          type="text"
+          id="idNumber"
+          value={idNumber}
+          onChange={(e) => {
+          const value = e.target.value.replace(/\D/g, '');
+          setIdNumber(value);
+        }}
+          error={formErrors.idNumber}
+          placeholder="13 digit number"
+          leftIcon={<BadgeCheck className="h-4 w-4" />}
+          fullWidth
+          maxLength={13}
+        />
+
+      
+        <Input
+          label="Contact Number"
+          type="tel"
+          id="contactNumber"
+          value={contactNumber}
+          onChange={(e) => {
+          const value = e.target.value.replace(/\D/g, '');
+          setContactNumber(value);
+          }}
+          error={formErrors.contactNumber}
+          placeholder="10 digit number"
+          leftIcon={<Phone className="h-4 w-4" />}
+          fullWidth
+          maxLength={10} 
+        />
+
           <div className="space-y-1.5">
-            <label className="text-sm font-medium leading-none">Account type</label>
+            <label className="text-sm font-medium leading-none">Account Type</label>
             <div className="flex space-x-4 mt-2">
               <label className="flex items-center space-x-2">
                 <input
@@ -147,7 +232,10 @@ const SignUpForm: React.FC = () => {
                   name="role"
                   value="patient"
                   checked={role === 'patient'}
-                  onChange={() => setRole('patient')}
+                  onChange={() => {
+                    setRole('patient');
+                    setDoctorId('');
+                  }}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                 />
                 <span className="text-sm">Patient</span>
@@ -166,6 +254,17 @@ const SignUpForm: React.FC = () => {
               </label>
             </div>
           </div>
+          
+          {role === 'doctor' && (
+            <Input
+              label="Doctor ID"
+              value={doctorId}
+              onChange={(e) => setDoctorId(e.target.value)}
+              error={formErrors.doctorId}
+              placeholder="e.g., DOC001"
+              required
+            />
+          )}
         </div>
         
         <div className="flex items-center">
@@ -188,19 +287,19 @@ const SignUpForm: React.FC = () => {
             isLoading={isLoading}
             rightIcon={<UserPlus className="h-4 w-4" />}
           >
-            Create account
+            Create Account
           </Button>
         </div>
       </form>
       
       <p className="mt-10 text-center text-sm text-gray-600">
-        Already have an account?{' '}
+        Already Have An Account?{' '}
         <button
           type="button"
           onClick={() => navigate('/signin')}
           className="font-medium text-blue-600 hover:text-blue-500"
         >
-          Sign in
+          Sign In
         </button>
       </p>
     </div>

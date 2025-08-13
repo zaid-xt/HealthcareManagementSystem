@@ -4,27 +4,31 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import type { Patient } from '../../types';
 
-interface AddPatientFormProps {
-  onSave: (patient: Omit<Patient, 'id'>) => void;
+interface EditPatientFormProps {
+  patient: Patient;
+  onSave: (updatedPatient: Patient) => void;
   onCancel: () => void;
 }
 
-const AddPatientForm: React.FC<AddPatientFormProps> = ({ onSave, onCancel }) => {
+const EditPatientForm: React.FC<EditPatientFormProps> = ({
+  patient,
+  onSave,
+  onCancel
+}) => {
   const [formData, setFormData] = useState({
-    patientId: `P${String(Date.now()).slice(-3)}`,
-    firstName: '',
-    lastName: '',
-    dateOfBirth: '',
-    gender: 'male' as Patient['gender'],
-    bloodType: '' as Patient['bloodType'],
-    contactNumber: '',
-    email: '',
-    address: '',
-    status: 'active' as Patient['status'],
+    firstName: patient.firstName,
+    lastName: patient.lastName,
+    dateOfBirth: patient.dateOfBirth,
+    gender: patient.gender,
+    bloodType: patient.bloodType || '',
+    contactNumber: patient.contactNumber,
+    email: patient.email,
+    address: patient.address,
+    status: patient.status,
     emergencyContact: {
-      name: '',
-      relation: '',
-      contactNumber: ''
+      name: patient.emergencyContact.name,
+      relation: patient.emergencyContact.relation,
+      contactNumber: patient.emergencyContact.contactNumber
     }
   });
 
@@ -102,21 +106,17 @@ const AddPatientForm: React.FC<AddPatientFormProps> = ({ onSave, onCancel }) => 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onSave(formData);
+      const updatedPatient: Patient = {
+        ...patient,
+        ...formData
+      };
+      onSave(updatedPatient);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Input
-          label="Patient ID"
-          value={formData.patientId}
-          onChange={(e) => setFormData(prev => ({ ...prev, patientId: e.target.value }))}
-          required
-          disabled
-        />
-        
         <Input
           label="First Name"
           value={formData.firstName}
@@ -267,11 +267,11 @@ const AddPatientForm: React.FC<AddPatientFormProps> = ({ onSave, onCancel }) => 
           type="submit"
           leftIcon={<Save className="h-4 w-4" />}
         >
-          Add Patient
+          Save Changes
         </Button>
       </div>
     </form>
   );
 };
 
-export default AddPatientForm;
+export default EditPatientForm;

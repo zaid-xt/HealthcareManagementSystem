@@ -57,17 +57,19 @@ const Navbar: React.FC = () => {
                         <Link to="/patients" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                           Patients
                         </Link>
-                        <Link to="/doctors" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                          Doctors
-                        </Link>
+                        {user?.role === 'admin' && (
+                          <Link to="/admin/doctors" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            Doctors
+                          </Link>
+                        )}
                         <Link to="/wards" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                           Wards
                         </Link>
                         <Link to="/medical-records" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                           Medical Records
                         </Link>
-                        <Link to="/prescriptions" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                          Prescriptions
+                        <Link to="/lab-results" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                          Lab Results
                         </Link>
                       </div>
                     </div>
@@ -99,6 +101,9 @@ const Navbar: React.FC = () => {
                   <BellRing className="h-6 w-6" />
                 </button>
                 
+                    {user?.role === 'doctor' && user?.specialization && (
+                      <div className="text-xs text-blue-600">{user.specialization}</div>
+                    )}
                 <div className="relative">
                   <button
                     type="button"
@@ -182,9 +187,11 @@ const Navbar: React.FC = () => {
                   <Link to="/patients" className="block rounded-md px-3 py-2 text-base font-medium text-gray-900 hover:bg-gray-50">
                     Patients
                   </Link>
-                  <Link to="/doctors" className="block rounded-md px-3 py-2 text-base font-medium text-gray-900 hover:bg-gray-50">
-                    Doctors
-                  </Link>
+                  {user?.role === 'admin' && (
+                    <Link to="/admin/doctors" className="block rounded-md px-3 py-2 text-base font-medium text-gray-900 hover:bg-gray-50">
+                      Doctors
+                    </Link>
+                  )}
                   <Link to="/wards" className="block rounded-md px-3 py-2 text-base font-medium text-gray-900 hover:bg-gray-50">
                     Wards
                   </Link>

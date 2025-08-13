@@ -33,8 +33,8 @@ const Sidebar: React.FC = () => {
     {
       title: 'Patients',
       icon: <Users className="w-5 h-5" />,
-      path: '/admin/patients',
-      roles: ['admin', 'doctor', 'nurse']
+      path: '/patients',
+      roles: ['admin', 'doctor']
     },
     {
       title: 'Doctors',
@@ -133,6 +133,9 @@ const Sidebar: React.FC = () => {
             </p>
             <p className="text-xs font-medium text-gray-500 truncate">
               {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : ''}
+              {user?.role === 'doctor' && user?.specialization && (
+                <span className="block text-xs text-blue-600 truncate">{user.specialization}</span>
+              )}
             </p>
           </div>
         </div>
