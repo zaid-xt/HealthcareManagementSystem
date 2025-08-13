@@ -18,6 +18,7 @@ import MessagesPage from './pages/MessagesPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import LabResultsPage from './pages/LabResultsPage';
 import ProfilePage from './pages/ProfilePage';
+import PrescriptionsPage from './pages/PrescriptionsPage';
 
 const App: React.FC = () => {
   return (
@@ -106,6 +107,14 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute allowedRoles={['admin', 'doctor']}>
                 <LabResultsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/prescriptions"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'doctor', 'patient']}>
+                <PrescriptionsPage />
               </ProtectedRoute>
             }
           />

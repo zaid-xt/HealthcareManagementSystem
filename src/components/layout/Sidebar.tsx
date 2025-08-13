@@ -63,8 +63,7 @@ const Sidebar: React.FC = () => {
     {
       title: 'Prescriptions',
       icon: <Pill className="w-5 h-5" />,
-      path: '/prescriptions',
-      roles: ['admin', 'doctor']
+      path: '/prescriptions'
     },
     {
       title: 'Settings',
