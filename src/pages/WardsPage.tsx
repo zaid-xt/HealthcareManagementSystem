@@ -9,7 +9,7 @@ import Button from '../components/ui/Button';
 import AddWardForm from '../components/wards/AddWardForm';
 import EditWardForm from '../components/wards/EditWardForm';
 import { useAuth } from '../context/AuthContext';
-import { wards, admittances } from '../utils/mockData';
+import { wards, admittances, patients } from '../utils/mockData';
 import type { Ward } from '../types';
 
 const WardsPage: React.FC = () => {
