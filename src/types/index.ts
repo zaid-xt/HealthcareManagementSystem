@@ -9,6 +9,8 @@ export interface User {
   permissions?: string[];
   doctorId?: string;
   specialization?: string;
+  idNumber: string;        
+  contactNumber: string;   
 }
 
 export interface Patient {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, UserPlus } from 'lucide-react';
+import { Mail, Lock, User, UserPlus, Phone, BadgeCheck } from 'lucide-react';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -12,12 +12,16 @@ const SignUpForm: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<'patient' | 'doctor'>('patient');
   const [doctorId, setDoctorId] = useState('');
+  const [idNumber, setIdNumber] = useState(''); 
+  const [contactNumber, setContactNumber] = useState(''); 
   const [formErrors, setFormErrors] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    doctorId: ''
+    doctorId: '',
+    idNumber: '', 
+    contactNumber: '' 
   });
   
   const { register, isLoading, error } = useAuth();
@@ -30,7 +34,9 @@ const SignUpForm: React.FC = () => {
       email: '',
       password: '',
       confirmPassword: '',
-      doctorId: ''
+      doctorId: '',
+      idNumber: '', 
+      contactNumber: '' 
     };
 
     if (!name) {
@@ -64,6 +70,22 @@ const SignUpForm: React.FC = () => {
       isValid = false;
     }
 
+     if (!idNumber) {
+    errors.idNumber = 'ID Number is required';
+    isValid = false;
+  } else if (!/^\d{13}$/.test(idNumber)) {  
+    errors.idNumber = 'ID Number must be exactly 13 digits';
+    isValid = false;
+  }
+
+  if (!contactNumber) {
+    errors.contactNumber = 'Contact Number is required';
+    isValid = false;
+  } else if (!/^\d{10}$/.test(contactNumber)) {  
+    errors.contactNumber = 'Contact Number must be exactly 10 digits';
+    isValid = false;
+  }
+
     setFormErrors(errors);
     return isValid;
   };
@@ -81,7 +103,9 @@ const SignUpForm: React.FC = () => {
           email,
           password,
           role,
-          doctorId: role === "doctor" ? doctorId : null
+          doctorId: role === "doctor" ? doctorId : null,
+          idNumber, 
+          contactNumber 
         })
       });
 
@@ -166,6 +190,39 @@ const SignUpForm: React.FC = () => {
             autoComplete="new-password"
           />
           
+        <Input
+          label="ID Number"
+          type="text"
+          id="idNumber"
+          value={idNumber}
+          onChange={(e) => {
+          const value = e.target.value.replace(/\D/g, '');
+          setIdNumber(value);
+        }}
+          error={formErrors.idNumber}
+          placeholder="13 digit number"
+          leftIcon={<BadgeCheck className="h-4 w-4" />}
+          fullWidth
+          maxLength={13}
+        />
+
+      
+        <Input
+          label="Contact Number"
+          type="tel"
+          id="contactNumber"
+          value={contactNumber}
+          onChange={(e) => {
+          const value = e.target.value.replace(/\D/g, '');
+          setContactNumber(value);
+          }}
+          error={formErrors.contactNumber}
+          placeholder="10 digit number"
+          leftIcon={<Phone className="h-4 w-4" />}
+          fullWidth
+          maxLength={10} 
+        />
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium leading-none">Account Type</label>
             <div className="flex space-x-4 mt-2">

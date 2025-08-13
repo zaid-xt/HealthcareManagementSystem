@@ -12,12 +12,15 @@ interface AuthContextType {
     name: string,
     password: string,
     role: User['role'],
-    additionalInfo?: { doctorId?: string }
+    idNumber: string,        // Add this
+    contactNumber: string,
+    additionalInfo?: { doctorId?: string },
   ) => Promise<boolean>;
   logout: () => void;
   error: string | null;
   hasPermission: (permission: Permission) => boolean;
   updateProfile: (updatedUser: User) => Promise<void>;
+  deleteProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,9 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // Add permissions from your permissions map
       data.user.permissions = DEFAULT_PERMISSIONS[data.user.role];
-
       setUser(data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
       setIsLoading(false);
@@ -75,6 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     name: string,
     password: string,
     role: User['role'],
+    idNumber: string,
+    contactNumber: string,
     additionalInfo?: { doctorId?: string }
   ): Promise<boolean> => {
     setIsLoading(true);
@@ -89,6 +92,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email,
           password,
           role,
+          idNumber,
+          contactNumber,
           doctorId: role === 'doctor' ? additionalInfo?.doctorId : undefined,
         }),
       });
@@ -101,9 +106,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // Optionally auto-login after successful registration:
-      // return await login(email, password);
-
       setIsLoading(false);
       return true;
     } catch (err) {
@@ -114,10 +116,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfile = async (updatedUser: User): Promise<void> => {
-    // Implement your profile update logic here if your backend supports it.
-    // For now, just update local state and storage:
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user?.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          doctorId: updatedUser.doctorId,
+        idNumber: updatedUser.idNumber,         
+        contactNumber: updatedUser.contactNumber, 
+          role: user?.role
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || 'Profile update failed');
+        setIsLoading(false);
+        throw new Error(data.message || 'Profile update failed');
+      }
+
+      const newUser = { ...user, ...updatedUser };
+      setUser(newUser);
+      localStorage.setItem('user', JSON.stringify(newUser));
+      setIsLoading(false);
+    } catch (err) {
+      setError('Network error during profile update');
+      setIsLoading(false);
+      throw err;
+    }
+  };
+
+  const deleteProfile = async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/profile/${user?.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || 'Profile deletion failed');
+        setIsLoading(false);
+        throw new Error(data.message || 'Profile deletion failed');
+      }
+
+      logout();
+    } catch (err) {
+      setError('Network error during profile deletion');
+      setIsLoading(false);
+      throw err;
+    }
   };
 
   const logout = () => {
@@ -142,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error,
         hasPermission,
         updateProfile,
+        deleteProfile,
       }}
     >
       {children}
