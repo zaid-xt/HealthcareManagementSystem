@@ -26,7 +26,6 @@ db.connect(err => {
 });
 
 // Signup endpoint
-// In the signup endpoint, update the destructuring and SQL query:
 app.post("/api/signup", async (req, res) => {
   try {
     const { name, email, password, role, doctorId, idNumber, contactNumber } = req.body;
@@ -36,14 +35,12 @@ app.post("/api/signup", async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-      // Validate ID Number format
     if (!/^\d{13}$/.test(idNumber)) {
       return res.status(400).json({ message: "ID Number must be exactly 13 digits" });
     }
 
-    // Validate Contact Number format
-    if (!/^\d{9}$/.test(contactNumber)) {
-      return res.status(400).json({ message: "Contact Number must be exactly 9 digits" });
+    if (!/^\d{10}$/.test(contactNumber)) {
+      return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
     }
 
     db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
@@ -110,7 +107,6 @@ app.post("/api/login", (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    // You can optionally exclude the password from the response
     const { password: pwd, ...userWithoutPassword } = user;
 
     res.status(200).json({ message: "Login successful", user: userWithoutPassword });
@@ -120,33 +116,50 @@ app.post("/api/login", (req, res) => {
 // Update profile endpoint
 app.put("/api/profile", async (req, res) => {
   try {
-    const { id, name, email, doctorId } = req.body;
+    const { id, name, email, doctorId, idNumber, contactNumber } = req.body;
 
-    if (!id || !name || !email) {
+    if (!id || !name || !email || !idNumber || !contactNumber) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // For doctors, require doctorId
+    if (!/^\d{13}$/.test(idNumber)) {
+      return res.status(400).json({ message: "ID Number must be exactly 13 digits" });
+    }
+
+    if (!/^\d{10}$/.test(contactNumber)) {
+      return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
+    }
+
     if (req.body.role === 'doctor' && !doctorId) {
       return res.status(400).json({ message: "Doctor ID is required" });
     }
 
     const sql = `UPDATE users 
-                 SET name = ?, email = ?, doctorId = ?
+                 SET name = ?, email = ?, doctorId = ?, idNumber = ?, contactNumber = ?
                  WHERE id = ?`;
     
-    db.query(sql, [name, email, doctorId || null, id], (err, results) => {
-      if (err) {
-        console.error("❌ Database UPDATE error:", err);
-        return res.status(500).json({ message: "Error updating profile" });
+    db.query(sql, 
+      [
+        name, 
+        email, 
+        doctorId || null, 
+        idNumber, 
+        contactNumber, 
+        id
+      ], 
+      (err, results) => {
+        if (err) {
+          console.error("❌ Database UPDATE error:", err);
+          return res.status(500).json({ message: "Error updating profile" });
+        }
+        
+        if (results.affectedRows === 0) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        
+        res.status(200).json({ message: "Profile updated successfully" });
       }
-      
-      if (results.affectedRows === 0) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      res.status(200).json({ message: "Profile updated successfully" });
-    });
+    );
   } catch (error) {
     console.error("❌ Unexpected server error:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -184,8 +197,6 @@ function toMySQLDateTime(isoString) {
   const d = new Date(isoString);
   return d.toISOString().slice(0, 19).replace('T', ' ');
 }
-
-// ... your existing imports and setup
 
 const serializeSymptoms = (symptoms) => JSON.stringify(symptoms);
 const deserializeSymptoms = (str) => {

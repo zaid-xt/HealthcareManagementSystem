@@ -12,7 +12,9 @@ interface AuthContextType {
     name: string,
     password: string,
     role: User['role'],
-    additionalInfo?: { doctorId?: string }
+    idNumber: string,        // Add this
+    contactNumber: string,
+    additionalInfo?: { doctorId?: string },
   ) => Promise<boolean>;
   logout: () => void;
   error: string | null;
@@ -74,6 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     name: string,
     password: string,
     role: User['role'],
+    idNumber: string,
+    contactNumber: string,
     additionalInfo?: { doctorId?: string }
   ): Promise<boolean> => {
     setIsLoading(true);
@@ -88,6 +92,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email,
           password,
           role,
+          idNumber,
+          contactNumber,
           doctorId: role === 'doctor' ? additionalInfo?.doctorId : undefined,
         }),
       });
@@ -122,6 +128,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: updatedUser.name,
           email: updatedUser.email,
           doctorId: updatedUser.doctorId,
+        idNumber: updatedUser.idNumber,         
+        contactNumber: updatedUser.contactNumber, 
           role: user?.role
         }),
       });

@@ -12,16 +12,16 @@ const SignUpForm: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<'patient' | 'doctor'>('patient');
   const [doctorId, setDoctorId] = useState('');
-  const [idNumber, setIdNumber] = useState(''); // New state
-  const [contactNumber, setContactNumber] = useState(''); // New state
+  const [idNumber, setIdNumber] = useState(''); 
+  const [contactNumber, setContactNumber] = useState(''); 
   const [formErrors, setFormErrors] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
     doctorId: '',
-    idNumber: '', // New error field
-    contactNumber: '' // New error field
+    idNumber: '', 
+    contactNumber: '' 
   });
   
   const { register, isLoading, error } = useAuth();
@@ -35,8 +35,8 @@ const SignUpForm: React.FC = () => {
       password: '',
       confirmPassword: '',
       doctorId: '',
-      idNumber: '', // New error field
-      contactNumber: '' // New error field
+      idNumber: '', 
+      contactNumber: '' 
     };
 
     if (!name) {
@@ -73,7 +73,7 @@ const SignUpForm: React.FC = () => {
      if (!idNumber) {
     errors.idNumber = 'ID Number is required';
     isValid = false;
-  } else if (!/^\d{13}$/.test(idNumber)) {  // Exactly 13 digits
+  } else if (!/^\d{13}$/.test(idNumber)) {  
     errors.idNumber = 'ID Number must be exactly 13 digits';
     isValid = false;
   }
@@ -81,8 +81,8 @@ const SignUpForm: React.FC = () => {
   if (!contactNumber) {
     errors.contactNumber = 'Contact Number is required';
     isValid = false;
-  } else if (!/^\d{9}$/.test(contactNumber)) {  // Exactly 9 digits
-    errors.contactNumber = 'Contact Number must be exactly 9 digits';
+  } else if (!/^\d{10}$/.test(contactNumber)) {  
+    errors.contactNumber = 'Contact Number must be exactly 10 digits';
     isValid = false;
   }
 
@@ -104,8 +104,8 @@ const SignUpForm: React.FC = () => {
           password,
           role,
           doctorId: role === "doctor" ? doctorId : null,
-          idNumber, // Added new field
-          contactNumber // Added new field
+          idNumber, 
+          contactNumber 
         })
       });
 
@@ -191,39 +191,37 @@ const SignUpForm: React.FC = () => {
           />
           
         <Input
-  label="ID Number"
-  type="text"
-  id="idNumber"
-  value={idNumber}
-  onChange={(e) => {
-    // Only allow numeric input
-    const value = e.target.value.replace(/\D/g, '');
-    setIdNumber(value);
-  }}
-  error={formErrors.idNumber}
-  placeholder="13 digit number"
-  leftIcon={<BadgeCheck className="h-4 w-4" />}
-  fullWidth
-  maxLength={13}  // Enforce maximum length
-/>
+          label="ID Number"
+          type="text"
+          id="idNumber"
+          value={idNumber}
+          onChange={(e) => {
+          const value = e.target.value.replace(/\D/g, '');
+          setIdNumber(value);
+        }}
+          error={formErrors.idNumber}
+          placeholder="13 digit number"
+          leftIcon={<BadgeCheck className="h-4 w-4" />}
+          fullWidth
+          maxLength={13}
+        />
 
       
-      <Input
-  label="Contact Number"
-  type="tel"
-  id="contactNumber"
-  value={contactNumber}
-  onChange={(e) => {
-    // Only allow numeric input
-    const value = e.target.value.replace(/\D/g, '');
-    setContactNumber(value);
-  }}
-  error={formErrors.contactNumber}
-  placeholder="9 digit number"
-  leftIcon={<Phone className="h-4 w-4" />}
-  fullWidth
-  maxLength={9}  // Enforce maximum length
-/>
+        <Input
+          label="Contact Number"
+          type="tel"
+          id="contactNumber"
+          value={contactNumber}
+          onChange={(e) => {
+          const value = e.target.value.replace(/\D/g, '');
+          setContactNumber(value);
+          }}
+          error={formErrors.contactNumber}
+          placeholder="10 digit number"
+          leftIcon={<Phone className="h-4 w-4" />}
+          fullWidth
+          maxLength={10} 
+        />
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium leading-none">Account Type</label>

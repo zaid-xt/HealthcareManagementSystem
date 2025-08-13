@@ -13,10 +13,13 @@ const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    doctorId: user?.doctorId || '',
-  });
+  name: user?.name || '',
+  email: user?.email || '',
+  doctorId: user?.doctorId || '',
+  idNumber: user?.idNumber || '', 
+  contactNumber: user?.contactNumber || '' 
+});
+
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,7 +35,9 @@ const ProfilePage: React.FC = () => {
           ...user,
           name: formData.name,
           email: formData.email,
-          doctorId: user.role === 'doctor' ? formData.doctorId : null
+          doctorId: user.role === 'doctor' ? formData.doctorId : null,
+          idNumber: formData.idNumber, 
+          contactNumber: formData.contactNumber
         });
       }
       setIsEditing(false);
@@ -117,6 +122,30 @@ const ProfilePage: React.FC = () => {
                         onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                         required
                       />
+
+                      <Input
+                        label="ID Number"
+                        value={formData.idNumber}
+                        onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        setFormData(prev => ({ ...prev, idNumber: value }));
+                        }}
+                        maxLength={13}
+                        placeholder="13 digit number"
+                        required
+                      />
+      
+                      <Input
+                        label="Contact Number"
+                        value={formData.contactNumber}
+                        onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        setFormData(prev => ({ ...prev, contactNumber: value }));
+                     }}
+                        maxLength={10}
+                        placeholder="10 digit number"
+                        required
+                      />
                     </div>
 
                     <div className="flex justify-end space-x-4">
@@ -175,6 +204,16 @@ const ProfilePage: React.FC = () => {
                         <h3 className="text-sm font-medium text-gray-500">Email</h3>
                         <p className="mt-1 text-sm text-gray-900">{formData.email}</p>
                       </div>
+
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500">ID Number</h3>
+                        <p className="mt-1 text-sm text-gray-900">{formData.idNumber}</p>
+                      </div>
+      
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500">Contact Number</h3>
+                        <p className="mt-1 text-sm text-gray-900">{formData.contactNumber}</p>
+                    </div>
                     </div>
                   </div>
                 )}
