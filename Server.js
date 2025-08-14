@@ -43,38 +43,47 @@ app.post("/api/signup", async (req, res) => {
       return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
     }
 
-    db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
+    db.query("SELECT * FROM users WHERE email = ?", [email], (err, emailResults) => {
       if (err) {
         console.error("❌ Database SELECT error:", err);
         return res.status(500).json({ message: "Database error" });
       }
-
-      if (results.length > 0) {
+      if (emailResults.length > 0) {
         return res.status(400).json({ message: "Email already registered" });
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const sql = `INSERT INTO users (name, email, password, role, doctorId, idNumber, contactNumber)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)`;
-
-      db.query(sql, 
-        [
-          name, 
-          email, 
-          hashedPassword, 
-          role, 
-          role === 'doctor' ? doctorId : null, 
-          idNumber, 
-          contactNumber
-        ], 
-        (err) => {
-          if (err) {
-            console.error("❌ Database INSERT error:", err);
-            return res.status(500).json({ message: "Error creating account" });
-          }
-          res.status(201).json({ message: "Account created successfully" });
+      db.query("SELECT * FROM users WHERE idNumber = ?", [idNumber], async (err, idResults) => {
+        if (err) {
+          console.error("❌ Database SELECT error:", err);
+          return res.status(500).json({ message: "Database error" });
         }
-      );
+        if (idResults.length > 0) {
+          return res.status(400).json({ message: "ID Number already registered" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const sql = `INSERT INTO users (name, email, password, role, doctorId, idNumber, contactNumber)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+        db.query(sql,
+          [
+            name,
+            email,
+            hashedPassword,
+            role,
+            role === 'doctor' ? doctorId : null,
+            idNumber,
+            contactNumber
+          ],
+          (err) => {
+            if (err) {
+              console.error("❌ Database INSERT error:", err);
+              return res.status(500).json({ message: "Error creating account" });
+            }
+            res.status(201).json({ message: "Account created successfully" });
+          }
+        );
+      });
     });
   } catch (error) {
     console.error("❌ Unexpected server error:", error);
@@ -113,55 +122,57 @@ app.post("/api/login", (req, res) => {
   });
 });
 
-// Update profile endpoint
+   // Update profile endpoint
 app.put("/api/profile", async (req, res) => {
   try {
-    const { id, name, email, doctorId, idNumber, contactNumber } = req.body;
+    const { id, name, email, doctorId, idNumber, contactNumber, role } = req.body;
 
     if (!id || !name || !email || !idNumber || !contactNumber) {
       return res.status(400).json({ message: "Missing required fields" });
     }
-
     if (!/^\d{13}$/.test(idNumber)) {
       return res.status(400).json({ message: "ID Number must be exactly 13 digits" });
     }
-
     if (!/^\d{10}$/.test(contactNumber)) {
       return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
     }
-
-    if (req.body.role === 'doctor' && !doctorId) {
+    if (role === 'doctor' && !doctorId) {
       return res.status(400).json({ message: "Doctor ID is required" });
     }
 
-    const sql = `UPDATE users 
-                 SET name = ?, email = ?, doctorId = ?, idNumber = ?, contactNumber = ?
-                 WHERE id = ?`;
-    
-    db.query(sql, 
-      [
-        name, 
-        email, 
-        doctorId || null, 
-        idNumber, 
-        contactNumber, 
-        id
-      ], 
-      (err, results) => {
-        if (err) {
-          console.error("❌ Database UPDATE error:", err);
-          return res.status(500).json({ message: "Error updating profile" });
-        }
-        
-        if (results.affectedRows === 0) {
-          return res.status(404).json({ message: "User not found" });
-        }
-        
-        res.status(200).json({ message: "Profile updated successfully" });
-      }
-    );
+    db.query("SELECT * FROM users WHERE email = ? AND id != ?", [email, id], (err, emailResults) => {
+      if (err) return res.status(500).json({ message: "Database error" });
+      if (emailResults.length > 0) return res.status(400).json({ message: "Email already in use" });
+
+      db.query("SELECT * FROM users WHERE idNumber = ? AND id != ?", [idNumber, id], (err, idResults) => {
+        if (err) return res.status(500).json({ message: "Database error" });
+        if (idResults.length > 0) return res.status(400).json({ message: "ID Number already in use" });
+
+        const sql = `
+          UPDATE users
+          SET name = ?, email = ?, doctorId = ?, idNumber = ?, contactNumber = ?
+          WHERE id = ?
+        `;
+        db.query(sql, [name, email, doctorId || null, idNumber, contactNumber, id], (err, results) => {
+          if (err) return res.status(500).json({ message: "Error updating profile" });
+          if (results.affectedRows === 0) return res.status(404).json({ message: "User not found" });
+
+          db.query("SELECT * FROM users WHERE id = ?", [id], (err, rows) => {
+            if (err) return res.status(500).json({ message: "Database error" });
+            if (rows.length === 0) return res.status(404).json({ message: "User not found" });
+
+            const updatedUser = rows[0];
+            delete updatedUser.password;
+
+            res.status(200).json({
+              message: "Profile updated successfully",
+              user: updatedUser
+            });
+          });
+        });
+      });
+    });
   } catch (error) {
-    console.error("❌ Unexpected server error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });

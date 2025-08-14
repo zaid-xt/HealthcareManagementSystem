@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User, Save, X, Stethoscope, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
@@ -6,24 +6,39 @@ import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
-import ConfirmationModal from '../components/ui/ConfirmationModal'
+import ConfirmationModal from '../components/ui/ConfirmationModal';
 
 const ProfilePage: React.FC = () => {
   const { user, updateProfile, deleteProfile, logout } = useAuth();
   const navigate = useNavigate();
   
-  const [formData, setFormData] = useState({
-  name: user?.name || '',
-  email: user?.email || '',
-  doctorId: user?.doctorId || '',
-  idNumber: user?.idNumber || '', 
-  contactNumber: user?.contactNumber || '' 
-});
+  // Store the last saved values separately
+  const [lastSavedData, setLastSavedData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    doctorId: user?.doctorId || '',
+    idNumber: user?.idNumber || '', 
+    contactNumber: user?.contactNumber || '' 
+  });
 
-
+  const [formData, setFormData] = useState(lastSavedData);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      const newData = {
+        name: user.name || '',
+        email: user.email || '',
+        doctorId: user.doctorId || '',
+        idNumber: user.idNumber || '',
+        contactNumber: user.contactNumber || ''
+      };
+      setLastSavedData(newData);
+      setFormData(newData);
+    }
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,18 +46,45 @@ const ProfilePage: React.FC = () => {
 
     try {
       if (user) {
-        await updateProfile({
-          ...user,
-          name: formData.name,
-          email: formData.email,
-          doctorId: user.role === 'doctor' ? formData.doctorId : null,
-          idNumber: formData.idNumber, 
-          contactNumber: formData.contactNumber
+        const res = await fetch("http://localhost:5000/api/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...user,
+            name: formData.name,
+            email: formData.email,
+            doctorId: user.role === "doctor" ? formData.doctorId : null,
+            idNumber: formData.idNumber,
+            contactNumber: formData.contactNumber
+          }),
         });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          alert("Your account has been updated successfully!");
+          const updatedData = {
+            name: data.name || formData.name,
+            email: data.email || formData.email,
+            doctorId: data.doctorId || formData.doctorId,
+            idNumber: data.idNumber || formData.idNumber,
+            contactNumber: data.contactNumber || formData.contactNumber
+          };
+          
+          setLastSavedData(updatedData);
+          updateProfile({ ...user, ...updatedData });
+          setIsEditing(false);
+        } else if (data.message?.toLowerCase().includes("email")) {
+          alert("Update failed: The email address is already in use.");
+        } else if (data.message?.toLowerCase().includes("id number")) {
+          alert("Update failed: The ID number is already in use.");
+        } else {
+          alert(`Update failed: ${data.message || "Unknown error"}`);
+        }
       }
-      setIsEditing(false);
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      console.error("Failed to update profile:", error);
+      alert("Something went wrong while updating your profile.");
     } finally {
       setIsSaving(false);
     }
@@ -127,8 +169,8 @@ const ProfilePage: React.FC = () => {
                         label="ID Number"
                         value={formData.idNumber}
                         onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '');
-                        setFormData(prev => ({ ...prev, idNumber: value }));
+                          const value = e.target.value.replace(/\D/g, '');
+                          setFormData(prev => ({ ...prev, idNumber: value }));
                         }}
                         maxLength={13}
                         placeholder="13 digit number"
@@ -139,9 +181,9 @@ const ProfilePage: React.FC = () => {
                         label="Contact Number"
                         value={formData.contactNumber}
                         onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '');
-                        setFormData(prev => ({ ...prev, contactNumber: value }));
-                     }}
+                          const value = e.target.value.replace(/\D/g, '');
+                          setFormData(prev => ({ ...prev, contactNumber: value }));
+                        }}
                         maxLength={10}
                         placeholder="10 digit number"
                         required
@@ -152,11 +194,15 @@ const ProfilePage: React.FC = () => {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setIsEditing(false)}
+                        onClick={() => {
+                          setFormData(lastSavedData);
+                          setIsEditing(false);
+                        }}
                         leftIcon={<X className="h-4 w-4" />}
                       >
                         Cancel
                       </Button>
+
                       <Button
                         type="submit"
                         isLoading={isSaving}
@@ -213,7 +259,7 @@ const ProfilePage: React.FC = () => {
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Contact Number</h3>
                         <p className="mt-1 text-sm text-gray-900">{formData.contactNumber}</p>
-                    </div>
+                      </div>
                     </div>
                   </div>
                 )}

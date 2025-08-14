@@ -12,7 +12,7 @@ interface AuthContextType {
     name: string,
     password: string,
     role: User['role'],
-    idNumber: string,        // Add this
+    idNumber: string,     
     contactNumber: string,
     additionalInfo?: { doctorId?: string },
   ) => Promise<boolean>;
@@ -116,42 +116,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfile = async (updatedUser: User): Promise<void> => {
-    setIsLoading(true);
-    setError(null);
+  setIsLoading(true);
+  setError(null);
 
-    try {
-      const response = await fetch('http://localhost:5000/api/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: user?.id,
-          name: updatedUser.name,
-          email: updatedUser.email,
-          doctorId: updatedUser.doctorId,
-        idNumber: updatedUser.idNumber,         
-        contactNumber: updatedUser.contactNumber, 
-          role: user?.role
-        }),
-      });
+  try {
+    const response = await fetch('http://localhost:5000/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: user?.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        doctorId: updatedUser.doctorId,
+        idNumber: updatedUser.idNumber,
+        contactNumber: updatedUser.contactNumber,
+        role: user?.role
+      }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        setError(data.message || 'Profile update failed');
-        setIsLoading(false);
-        throw new Error(data.message || 'Profile update failed');
-      }
-
-      const newUser = { ...user, ...updatedUser };
-      setUser(newUser);
-      localStorage.setItem('user', JSON.stringify(newUser));
+    if (!response.ok) {
+      setError(data.message || 'Profile update failed');
       setIsLoading(false);
-    } catch (err) {
-      setError('Network error during profile update');
-      setIsLoading(false);
-      throw err;
+      throw new Error(data.message || 'Profile update failed');
     }
-  };
+
+    setUser(data.user);
+    localStorage.setItem('user', JSON.stringify(data.user));
+
+    setIsLoading(false);
+  } catch (err) {
+    setError('Network error during profile update');
+    setIsLoading(false);
+    throw err;
+  }
+};
 
   const deleteProfile = async (): Promise<void> => {
     setIsLoading(true);
