@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Calendar, Activity, Building, FlaskRound as Flask, Pill, ChevronRight } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
@@ -6,10 +6,30 @@ import Sidebar from '../components/layout/Sidebar';
 import StatsCard from '../components/dashboard/StatsCard';
 import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
-import { patients, appointments, wards, labs, prescriptions } from '../utils/mockData';
+import { patients, appointments, labs, prescriptions } from '../utils/mockData';
+import type { Ward } from '../types';
+import { fetchWards } from '../api/wardsApi';
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [wardsLoading, setWardsLoading] = useState(true);
+  const [wardsError, setWardsError] = useState<string | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setWardsLoading(true);
+        const data = await fetchWards();
+        if (mounted) setWards(data);
+      } catch (e: any) {
+        if (mounted) setWardsError(e?.message || 'Failed to load wards');
+      } finally {
+        if (mounted) setWardsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
   const navigate = useNavigate();
   
   // Filter appointments to only show today's and upcoming
@@ -78,7 +98,7 @@ const DashboardPage: React.FC = () => {
                     title="Available Beds"
                     value={wards.reduce((total, ward) => total + ward.availableBeds, 0)}
                     icon={<Building className="h-5 w-5" />}
-                    description={`Across ${wards.length} wards`}
+                    description={wardsLoading ? 'Loading...' : wardsError ? 'Error' : `Across ${wards.length} wards`}
                     color="purple"
                   />
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Building, Plus, Search, Filter, Edit2,
   BedDouble, Users, Activity, AlertTriangle, Trash2
@@ -9,8 +9,9 @@ import Button from '../components/ui/Button';
 import AddWardForm from '../components/wards/AddWardForm';
 import EditWardForm from '../components/wards/EditWardForm';
 import { useAuth } from '../context/AuthContext';
-import { wards, admittances, patients } from '../utils/mockData';
+import { admittances, patients } from '../utils/mockData';
 import type { Ward } from '../types';
+import { fetchWards, addWard, updateWard, deleteWard } from '../api/wardsApi';
 
 const WardsPage: React.FC = () => {
   const { user } = useAuth();
@@ -21,26 +22,57 @@ const WardsPage: React.FC = () => {
   const [editingWard, setEditingWard] = useState<Ward | null>(null);
   const [wardToDelete, setWardToDelete] = useState<Ward | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [wardItems, setWardItems] = useState<Ward[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAddWard = (wardData: Omit<Ward, 'id' | 'managedBy'>) => {
-    const newWard: Ward = {
-      id: `ward${wards.length + 1}`,
-      managedBy: user?.id || '',
-      ...wardData
-    };
-    wards.push(newWard);
-    setIsAddingWard(false);
-  };
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setIsLoading(true);
+        const data = await fetchWards();
+        if (mounted) setWardItems(data);
+      } catch (e: any) {
+        if (mounted) setError(e?.message || 'Failed to load wards');
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
-  const handleUpdateWard = (updatedWard: Ward) => {
-    const wardIndex = wards.findIndex(w => w.id === updatedWard.id);
-    if (wardIndex !== -1) {
-      wards[wardIndex] = updatedWard;
+  const handleAddWard = async (wardData: Omit<Ward, 'id'>) => {
+    try {
+      const created = await addWard({
+        ...wardData,
+        managedBy: wardData.managedBy || user?.id || null,
+      });
+      setWardItems(prev => [...prev, created]);
+      setIsAddingWard(false);
+    } catch (e: any) {
+      alert(e?.message || 'Failed to add ward');
     }
-    setEditingWard(null);
   };
 
-  const handleDeleteWard = () => {
+  const handleUpdateWard = async (updatedWard: Ward) => {
+    try {
+      const saved = await updateWard(updatedWard.id, {
+        name: updatedWard.name,
+        type: updatedWard.type,
+        floorNumber: updatedWard.floorNumber,
+        totalBeds: updatedWard.totalBeds,
+        availableBeds: updatedWard.availableBeds,
+        managedBy: updatedWard.managedBy || user?.id || null,
+      });
+      setWardItems(prev => prev.map(w => w.id === saved.id ? saved : w));
+      setEditingWard(null);
+    } catch (e: any) {
+      alert(e?.message || 'Failed to update ward');
+    }
+  };
+
+  const handleDeleteWard = async () => {
     if (!wardToDelete) return;
     const wardAdmittances = admittances.filter(a => a.wardId === wardToDelete.id && a.status === 'admitted');
     if (wardAdmittances.length > 0) {
@@ -48,11 +80,14 @@ const WardsPage: React.FC = () => {
       setWardToDelete(null);
       return;
     }
-    const wardIndex = wards.findIndex(w => w.id === wardToDelete.id);
-    if (wardIndex !== -1) {
-      wards.splice(wardIndex, 1);
+    try {
+      await deleteWard(wardToDelete.id);
+      setWardItems(prev => prev.filter(w => w.id !== wardToDelete.id));
+    } catch (e: any) {
+      alert(e?.message || 'Failed to delete ward');
+    } finally {
+      setWardToDelete(null);
     }
-    setWardToDelete(null);
   };
 
   const getOccupancyPercentage = (totalBeds: number, availableBeds: number) => {
@@ -66,16 +101,16 @@ const WardsPage: React.FC = () => {
     return 'text-green-600 bg-green-100';
   };
 
-  const filteredWards = wards.filter(ward =>
+  const filteredWards = wardItems.filter(ward =>
     ward.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ward.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalBeds = wards.reduce((sum, ward) => sum + ward.totalBeds, 0);
-  const totalAvailableBeds = wards.reduce((sum, ward) => sum + ward.availableBeds, 0);
+  const totalBeds = wardItems.reduce((sum, ward) => sum + ward.totalBeds, 0);
+  const totalAvailableBeds = wardItems.reduce((sum, ward) => sum + ward.availableBeds, 0);
   const totalOccupiedBeds = totalBeds - totalAvailableBeds;
   const overallOccupancyRate = totalBeds > 0 ? Math.round((totalOccupiedBeds / totalBeds) * 100) : 0;
-  const criticalWards = wards.filter(ward =>
+  const criticalWards = wardItems.filter(ward =>
     getOccupancyPercentage(ward.totalBeds, ward.availableBeds) >= 90
   ).length;
 
@@ -116,7 +151,7 @@ const WardsPage: React.FC = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Wards</p>
-                <p className="text-2xl font-semibold text-gray-900">{wards.length}</p>
+                <p className="text-2xl font-semibold text-gray-900">{wardItems.length}</p>
               </div>
             </div>
           </div>
@@ -290,6 +325,12 @@ const WardsPage: React.FC = () => {
         <Sidebar />
         <main className="flex-1 p-8">
           <div className="max-w-7xl mx-auto">
+            {isLoading && (
+              <div className="mb-4 text-gray-500">Loading wards...</div>
+            )}
+            {error && (
+              <div className="mb-4 text-red-600">{error}</div>
+            )}
             <div className="flex justify-between items-center mb-8">
               <div className="flex items-center gap-3">
                 <Building className="h-8 w-8 text-blue-600" />

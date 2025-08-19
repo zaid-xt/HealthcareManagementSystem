@@ -1,5 +1,6 @@
 import express from "express";
 import mysql from "mysql2";
+import mysqlPromise from "mysql2/promise";
 import bcrypt from "bcryptjs";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -10,20 +11,331 @@ app.use(express.json());
 app.use(cors());
 
 // MySQL Connection
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME
-});
+// Validate required environment variables early for clearer errors
+const requiredEnvVars = ["DB_HOST", "DB_USER", "DB_NAME"]; 
+const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key] || String(process.env[key]).trim() === "");
 
-db.connect(err => {
-  if (err) {
-    console.error("MySQL connection error:", err);
-  } else {
-    console.log("✅ Connected to MySQL");
+if (missingEnvVars.length > 0) {
+  console.error(
+    `Missing required environment variables: ${missingEnvVars.join(", ")}.\n` +
+    "Create a .env file with DB_HOST, DB_USER, DB_PASS (if needed), and DB_NAME."
+  );
+  process.exit(1);
+}
+
+console.log(
+  `Attempting MySQL connection → host: ${process.env.DB_HOST}, port: ${process.env.DB_PORT || 3306}, user: ${process.env.DB_USER}`
+);
+
+let db;
+
+// Function to populate database with initial mock data
+async function populateInitialData(appConn) {
+  try {
+    // Check if wards table is empty and populate with mock data
+    const [wardCount] = await appConn.query('SELECT COUNT(*) as count FROM wards');
+    if (wardCount[0].count === 0) {
+      console.log('📊 Populating wards table with initial data...');
+      
+      const mockWards = [
+        {
+          name: 'General Ward A',
+          type: 'general',
+          floorNumber: 2,
+          totalBeds: 20,
+          availableBeds: 7,
+          managedBy: 'admin1'
+        },
+        {
+          name: 'ICU',
+          type: 'icu',
+          floorNumber: 3,
+          totalBeds: 10,
+          availableBeds: 2,
+          managedBy: 'admin1'
+        },
+        {
+          name: 'Maternity Ward',
+          type: 'maternity',
+          floorNumber: 4,
+          totalBeds: 15,
+          availableBeds: 6,
+          managedBy: 'admin1'
+        },
+        {
+          name: 'Emergency Ward',
+          type: 'emergency',
+          floorNumber: 1,
+          totalBeds: 15,
+          availableBeds: 8,
+          managedBy: 'admin1'
+        },
+        {
+          name: 'Pediatric Ward',
+          type: 'pediatric',
+          floorNumber: 5,
+          totalBeds: 12,
+          availableBeds: 4,
+          managedBy: 'admin1'
+        },
+        {
+          name: 'Surgical Ward',
+          type: 'surgical',
+          floorNumber: 2,
+          totalBeds: 18,
+          availableBeds: 5,
+          managedBy: 'admin1'
+        }
+      ];
+
+      for (const ward of mockWards) {
+        await appConn.query(`
+          INSERT INTO wards (name, type, floorNumber, totalBeds, availableBeds, managedBy)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [ward.name, ward.type, ward.floorNumber, ward.totalBeds, ward.availableBeds, ward.managedBy]);
+      }
+      console.log(`✅ Added ${mockWards.length} wards to database`);
+    }
+
+    // Check if messages table is empty and populate with mock data
+    const [messageCount] = await appConn.query('SELECT COUNT(*) as count FROM messages');
+    if (messageCount[0].count === 0) {
+      console.log('📊 Populating messages table with initial data...');
+      
+      const mockMessages = [
+        {
+          senderId: 'doctor1',
+          receiverId: 'nurse1',
+          subject: 'Patient Update - Room 302',
+          content: 'Patient in room 302 needs immediate attention. Blood pressure is elevated.',
+          priority: 'urgent'
+        },
+        {
+          senderId: 'admin1',
+          receiverId: 'doctor1',
+          subject: 'New Patient Assignment',
+          content: 'You have been assigned a new patient. Please review the case file.',
+          priority: 'normal'
+        },
+        {
+          senderId: 'nurse1',
+          receiverId: 'doctor1',
+          subject: 'Medication Request',
+          content: 'Patient requesting pain medication. Current prescription seems insufficient.',
+          priority: 'urgent'
+        },
+        {
+          senderId: 'doctor2',
+          receiverId: 'admin1',
+          subject: 'Equipment Maintenance',
+          content: 'MRI machine in radiology needs maintenance. Please schedule technician.',
+          priority: 'normal'
+        },
+        {
+          senderId: 'admin1',
+          receiverId: 'nurse1',
+          subject: 'Staff Meeting Reminder',
+          content: 'Monthly staff meeting tomorrow at 9 AM in conference room A.',
+          priority: 'normal'
+        },
+        {
+          senderId: 'doctor1',
+          receiverId: 'patient1',
+          subject: 'Test Results Available',
+          content: 'Your recent blood test results are now available. Please schedule follow-up.',
+          priority: 'normal'
+        },
+        {
+          senderId: 'patient1',
+          receiverId: 'doctor1',
+          subject: 'Side Effects Question',
+          content: 'I\'ve been experiencing some side effects from the new medication.',
+          priority: 'urgent'
+        },
+        {
+          senderId: 'doctor1',
+          receiverId: 'patient1',
+          subject: 'Appointment Confirmation',
+          content: 'Your appointment for next week has been confirmed. See you then!',
+          priority: 'normal'
+        }
+      ];
+
+      for (const message of mockMessages) {
+        await appConn.query(`
+          INSERT INTO messages (senderId, receiverId, subject, content, priority)
+          VALUES (?, ?, ?, ?, ?)
+        `, [message.senderId, message.receiverId, message.subject, message.content, message.priority]);
+      }
+      console.log(`✅ Added ${mockMessages.length} messages to database`);
+    }
+
+    // Check if users table is empty and populate with basic users
+    const [userCount] = await appConn.query('SELECT COUNT(*) as count FROM users');
+    if (userCount[0].count === 0) {
+      console.log('📊 Populating users table with initial data...');
+      
+      const mockUsers = [
+        {
+          name: 'Admin User',
+          email: 'admin@hospital.com',
+          password: await bcrypt.hash('admin123', 10),
+          role: 'admin',
+          doctorId: null,
+          idNumber: '1234567890123',
+          contactNumber: '0123456789'
+        },
+        {
+          name: 'Dr. Sarah Johnson',
+          email: 'doctor@hospital.com',
+          password: await bcrypt.hash('doctor123', 10),
+          role: 'doctor',
+          doctorId: 'DOC001',
+          idNumber: '2345678901234',
+          contactNumber: '1234567890'
+        },
+        {
+          name: 'Nurse Robert Chen',
+          email: 'nurse@hospital.com',
+          password: await bcrypt.hash('nurse123', 10),
+          role: 'nurse',
+          doctorId: null,
+          idNumber: '3456789012345',
+          contactNumber: '2345678901'
+        },
+        {
+          name: 'Jane Smith',
+          email: 'patient@example.com',
+          password: await bcrypt.hash('patient123', 10),
+          role: 'patient',
+          doctorId: null,
+          idNumber: '4567890123456',
+          contactNumber: '3456789012'
+        }
+      ];
+
+      for (const user of mockUsers) {
+        await appConn.query(`
+          INSERT INTO users (name, email, password, role, doctorId, idNumber, contactNumber)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [user.name, user.email, user.password, user.role, user.doctorId, user.idNumber, user.contactNumber]);
+      }
+      console.log(`✅ Added ${mockUsers.length} users to database`);
+    }
+
+    console.log('🎉 Database population completed successfully!');
+  } catch (error) {
+    console.error('❌ Error populating database with initial data:', error);
   }
-});
+}
+
+async function ensureDatabaseAndTables() {
+  const host = process.env.DB_HOST;
+  const port = process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306;
+  const user = process.env.DB_USER;
+  const password = process.env.DB_PASS;
+  const database = process.env.DB_NAME;
+
+  // Connect without database to ensure it exists
+  const rootConn = await mysqlPromise.createConnection({ host, port, user, password });
+  await rootConn.query(
+    `CREATE DATABASE IF NOT EXISTS \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+  );
+  await rootConn.end();
+
+  // Connect to the target database
+  const appConn = await mysqlPromise.createConnection({ host, port, user, password, database });
+
+  // Create required tables if they do not exist
+  await appConn.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL,
+      role VARCHAR(50) NOT NULL DEFAULT 'patient',
+      doctorId VARCHAR(50) NULL,
+      idNumber VARCHAR(13) NOT NULL UNIQUE,
+      contactNumber VARCHAR(10) NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
+  await appConn.query(`
+    CREATE TABLE IF NOT EXISTS medical_records (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      patientId INT NOT NULL,
+      doctorId VARCHAR(50) NOT NULL,
+      diagnosis VARCHAR(255) NOT NULL,
+      symptoms TEXT,
+      treatment TEXT,
+      notes TEXT,
+      date DATETIME NULL,
+      lastUpdated DATETIME NULL,
+      lastUpdatedBy VARCHAR(255),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_patient (patientId),
+      INDEX idx_doctor (doctorId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
+  // Create wards table
+  await appConn.query(`
+    CREATE TABLE IF NOT EXISTS wards (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      type ENUM('general', 'icu', 'emergency', 'maternity', 'pediatric', 'surgical') NOT NULL,
+      floorNumber INT NOT NULL,
+      totalBeds INT NOT NULL,
+      availableBeds INT NOT NULL,
+      managedBy VARCHAR(50) NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
+  // Create messages table
+  await appConn.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      senderId VARCHAR(50) NOT NULL,
+      receiverId VARCHAR(50) NOT NULL,
+      subject VARCHAR(255) NOT NULL,
+      content TEXT NOT NULL,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      is_read BOOLEAN DEFAULT FALSE,
+      status ENUM('sent', 'delivered', 'read', 'archived', 'deleted') DEFAULT 'sent',
+      priority ENUM('normal', 'urgent') DEFAULT 'normal',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_sender (senderId),
+      INDEX idx_receiver (receiverId),
+      INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
+  // Ensure doctorId uses VARCHAR to support IDs like 'DOC001'
+  try {
+    await appConn.query(`ALTER TABLE users MODIFY COLUMN doctorId VARCHAR(50) NULL`);
+  } catch (e) {
+    // Ignore if already the desired type or cannot alter in current context
+  }
+
+  // Populate database with initial mock data if tables are empty
+  await populateInitialData(appConn);
+
+  await appConn.end();
+
+  // Create the non-promise connection used throughout the app
+  db = mysql.createConnection({ host, port, user, password, database });
+
+  await new Promise((resolve, reject) => {
+    db.connect((err) => {
+      if (err) return reject(err);
+      console.log("✅ Connected to MySQL and ensured database/tables exist");
+      resolve();
+    });
+  });
+}
 
 // Signup endpoint
 app.post("/api/signup", async (req, res) => {
@@ -366,4 +678,295 @@ app.get('/api/patients', (req, res) => {
   });
 });
 
-app.listen(5000, () => console.log("🚀 Server running on port 5000"));
+// ==================== WARD CRUD OPERATIONS ====================
+
+// GET all wards
+app.get('/api/wards', (req, res) => {
+  const sql = 'SELECT * FROM wards ORDER BY name';
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('DB error fetching wards:', err);
+      return res.status(500).json({ message: 'Failed to fetch wards' });
+    }
+    res.json(results);
+  });
+});
+
+// GET single ward by ID
+app.get('/api/wards/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = 'SELECT * FROM wards WHERE id = ?';
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('DB error fetching ward:', err);
+      return res.status(500).json({ message: 'Failed to fetch ward' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Ward not found' });
+    }
+    res.json(results[0]);
+  });
+});
+
+// POST create new ward
+app.post('/api/wards', (req, res) => {
+  const { name, type, floorNumber, totalBeds, availableBeds, managedBy } = req.body;
+  
+  if (!name || !type || !floorNumber || !totalBeds || availableBeds === undefined) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  const sql = `
+    INSERT INTO wards (name, type, floorNumber, totalBeds, availableBeds, managedBy)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  
+  db.query(sql, [name, type, floorNumber, totalBeds, availableBeds, managedBy || null], (err, results) => {
+    if (err) {
+      console.error('DB error creating ward:', err);
+      return res.status(500).json({ message: 'Failed to create ward' });
+    }
+    
+    // Fetch the created ward to return
+    const newWardId = results.insertId;
+    db.query('SELECT * FROM wards WHERE id = ?', [newWardId], (err, wardResults) => {
+      if (err) {
+        console.error('DB error fetching created ward:', err);
+        return res.status(500).json({ message: 'Ward created but failed to fetch details' });
+      }
+      res.status(201).json(wardResults[0]);
+    });
+  });
+});
+
+// PUT update ward
+app.put('/api/wards/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, type, floorNumber, totalBeds, availableBeds, managedBy } = req.body;
+  
+  if (!name || !type || !floorNumber || !totalBeds || availableBeds === undefined) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  const sql = `
+    UPDATE wards 
+    SET name = ?, type = ?, floorNumber = ?, totalBeds = ?, availableBeds = ?, managedBy = ?
+    WHERE id = ?
+  `;
+  
+  db.query(sql, [name, type, floorNumber, totalBeds, availableBeds, managedBy || null, id], (err, results) => {
+    if (err) {
+      console.error('DB error updating ward:', err);
+      return res.status(500).json({ message: 'Failed to update ward' });
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Ward not found' });
+    }
+    
+    // Fetch the updated ward to return
+    db.query('SELECT * FROM wards WHERE id = ?', [id], (err, wardResults) => {
+      if (err) {
+        console.error('DB error fetching updated ward:', err);
+        return res.status(500).json({ message: 'Ward updated but failed to fetch details' });
+      }
+      res.json(wardResults[0]);
+    });
+  });
+});
+
+// DELETE ward
+app.delete('/api/wards/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = 'DELETE FROM wards WHERE id = ?';
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('DB error deleting ward:', err);
+      return res.status(500).json({ message: 'Failed to delete ward' });
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Ward not found' });
+    }
+    
+    res.json({ message: 'Ward deleted successfully' });
+  });
+});
+
+// ==================== MESSAGE CRUD OPERATIONS ====================
+
+// GET all messages (with optional filters)
+app.get('/api/messages', (req, res) => {
+  const { senderId, receiverId, status, priority } = req.query;
+  let sql = 'SELECT * FROM messages';
+  const params = [];
+  
+  if (senderId || receiverId || status || priority) {
+    sql += ' WHERE';
+    const conditions = [];
+    
+    if (senderId) {
+      conditions.push('senderId = ?');
+      params.push(senderId);
+    }
+    if (receiverId) {
+      conditions.push('receiverId = ?');
+      params.push(receiverId);
+    }
+    if (status) {
+      conditions.push('status = ?');
+      params.push(status);
+    }
+    if (priority) {
+      conditions.push('priority = ?');
+      params.push(priority);
+    }
+    
+    sql += ' ' + conditions.join(' AND ');
+  }
+  
+  sql += ' ORDER BY timestamp DESC';
+  
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error('DB error fetching messages:', err);
+      return res.status(500).json({ message: 'Failed to fetch messages' });
+    }
+    res.json(results);
+  });
+});
+
+// GET single message by ID
+app.get('/api/messages/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = 'SELECT * FROM messages WHERE id = ?';
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('DB error fetching message:', err);
+      return res.status(500).json({ message: 'Failed to fetch message' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+    res.json(results[0]);
+  });
+});
+
+// POST create new message
+app.post('/api/messages', (req, res) => {
+  const { senderId, receiverId, subject, content, priority } = req.body;
+  
+  if (!senderId || !receiverId || !subject || !content) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  const sql = `
+    INSERT INTO messages (senderId, receiverId, subject, content, priority)
+    VALUES (?, ?, ?, ?, ?)
+  `;
+  
+  db.query(sql, [senderId, receiverId, subject, content, priority || 'normal'], (err, results) => {
+    if (err) {
+      console.error('DB error creating message:', err);
+      return res.status(500).json({ message: 'Failed to create message' });
+    }
+    
+    // Fetch the created message to return
+    const newMessageId = results.insertId;
+    db.query('SELECT * FROM messages WHERE id = ?', [newMessageId], (err, messageResults) => {
+      if (err) {
+        console.error('DB error fetching created message:', err);
+        return res.status(500).json({ message: 'Message created but failed to fetch details' });
+      }
+      res.status(201).json(messageResults[0]);
+    });
+  });
+});
+
+// PUT update message
+app.put('/api/messages/:id', (req, res) => {
+  const { id } = req.params;
+  const { subject, content, status, priority, is_read } = req.body;
+  
+  if (!subject || !content) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  const sql = `
+    UPDATE messages 
+    SET subject = ?, content = ?, status = ?, priority = ?, is_read = ?
+    WHERE id = ?
+  `;
+  
+  db.query(sql, [subject, content, status || 'sent', priority || 'normal', is_read || false, id], (err, results) => {
+    if (err) {
+      console.error('DB error updating message:', err);
+      return res.status(500).json({ message: 'Failed to update message' });
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+    
+    // Fetch the updated message to return
+    db.query('SELECT * FROM messages WHERE id = ?', [id], (err, messageResults) => {
+      if (err) {
+        console.error('DB error fetching updated message:', err);
+        return res.status(500).json({ message: 'Message updated but failed to fetch details' });
+      }
+      res.json(messageResults[0]);
+    });
+  });
+});
+
+// DELETE message
+app.delete('/api/messages/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = 'DELETE FROM messages WHERE id = ?';
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('DB error deleting message:', err);
+      return res.status(500).json({ message: 'Failed to delete message' });
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+    
+    res.json({ message: 'Message deleted successfully' });
+  });
+});
+
+// PATCH mark message as read
+app.patch('/api/messages/:id/read', (req, res) => {
+  const { id } = req.params;
+  const sql = 'UPDATE messages SET is_read = TRUE, status = "read" WHERE id = ?';
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('DB error marking message as read:', err);
+      return res.status(500).json({ message: 'Failed to mark message as read' });
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+    
+    res.json({ message: 'Message marked as read' });
+  });
+});
+
+// Start server only after DB is ready
+(async () => {
+  try {
+    await ensureDatabaseAndTables();
+    app.listen(5000, () => console.log("🚀 Server running on port 5000"));
+  } catch (error) {
+    console.error("❌ Failed to initialize database:", error);
+    process.exit(1);
+  }
+})();
