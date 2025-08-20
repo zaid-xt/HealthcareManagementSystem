@@ -69,8 +69,8 @@ const SignInForm: React.FC = () => {
   return (
     <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg">
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
-        <p className="mt-2 text-gray-600">Sign in to your account</p>
+        <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
+        <p className="mt-2 text-gray-600">Sign In To Your Account</p>
       </div>
       
       {error && (
@@ -82,7 +82,7 @@ const SignInForm: React.FC = () => {
       <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
         <div className="space-y-4">
           <Input
-            label="Email address"
+            label="Email Address"
             type="email"
             id="email"
             value={email}
@@ -117,7 +117,7 @@ const SignInForm: React.FC = () => {
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
             <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-              Remember me
+              Remember Me
             </label>
           </div>
           
@@ -125,7 +125,7 @@ const SignInForm: React.FC = () => {
             type="button"
             className="text-sm font-medium text-blue-600 hover:text-blue-500"
           >
-            Forgot your password?
+            Forgot Your Password?
           </button>
         </div>
         
@@ -136,12 +136,12 @@ const SignInForm: React.FC = () => {
             isLoading={isLoading}
             rightIcon={<LogIn className="h-4 w-4" />}
           >
-            Sign in
+            Sign In
           </Button>
         </div>
       </form>
       
-      <div className="mt-6">
+      {/* <div className="mt-6">
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300"></div>
@@ -177,7 +177,7 @@ const SignInForm: React.FC = () => {
             Patient
           </Button>
         </div>
-      </div>
+      </div> */}
       
       <p className="mt-10 text-center text-sm text-gray-600">
         Don't have an account?{' '}

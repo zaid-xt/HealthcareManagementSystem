@@ -44,17 +44,33 @@ const MedicalRecordsPage: React.FC = () => {
     loadDoctors();
   }, []);
 
-  const loadRecords = async () => {
-    try {
-      setIsLoading(true);
-      const data = await fetchMedicalRecords();
-      setMedicalRecords(data);
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsLoading(false);
+const loadRecords = async () => {
+  try {
+    setIsLoading(true);
+    let data;
+    
+    if (user?.role === 'doctor') {
+      const res = await fetch(`http://localhost:5000/api/medical-records/doctor/${user.id}`, {
+        headers: {
+          'user-id': user.id // Temporary - use proper auth headers in production
+        }
+      });
+      if (!res.ok) throw new Error('Failed to fetch doctor records');
+      data = await res.json();
+    } else {
+      const res = await fetch('http://localhost:5000/api/medical-records');
+      if (!res.ok) throw new Error('Failed to fetch records');
+      data = await res.json();
     }
-  };
+    
+    setMedicalRecords(data);
+  } catch (err: any) {
+    console.error('Error loading records:', err);
+    alert(err.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const loadPatients = async () => {
     try {
@@ -73,29 +89,34 @@ const MedicalRecordsPage: React.FC = () => {
   };
 
   const loadDoctors = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/doctors');
-      if (!res.ok) throw new Error('Failed to load doctors');
-      const data = await res.json();
-      const formatted = data.map((d: any) => ({
-        ...d,
-        id: String(d.id),
-      }));
-      setDoctors(formatted);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  try {
+    const res = await fetch('http://localhost:5000/api/doctors');
+    if (!res.ok) throw new Error('Failed to load doctors');
+    const data = await res.json();
+    const formatted = data.map((d: any) => ({
+      ...d,
+      id: String(d.id),
+    }));
+    setDoctors(formatted);
+  } catch (err) {
+    console.error('Error loading doctors:', err);
+    // Optional: set some state to show error in UI
+  }
+};
 
-  const handleAddRecord = async (newRecord: MedicalRecord) => {
-    try {
-      const savedRecord = await addMedicalRecord(newRecord);
-      setMedicalRecords((prev) => [...prev, savedRecord]);
-      setIsAddingRecord(false);
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
+ const handleAddRecord = async (newRecord: MedicalRecord) => {
+  try {
+    const recordWithDoctor = {
+      ...newRecord,
+      doctorId: user?.id // Add current user's ID as doctorId
+    };
+    const savedRecord = await addMedicalRecord(recordWithDoctor);
+    setMedicalRecords((prev) => [...prev, savedRecord]);
+    setIsAddingRecord(false);
+  } catch (err: any) {
+    alert(err.message);
+  }
+};
 
   const handleSaveRecord = async (updatedRecord: MedicalRecord) => {
     try {

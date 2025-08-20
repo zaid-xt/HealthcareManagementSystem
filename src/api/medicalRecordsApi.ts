@@ -1,7 +1,12 @@
 const API_URL = 'http://localhost:5000/api/medical-records';
 
-export async function fetchMedicalRecords() {
-  const res = await fetch(API_URL);
+// Update fetchMedicalRecords to accept doctorId
+export async function fetchMedicalRecords(doctorId?: string) {
+  const url = doctorId 
+    ? `http://localhost:5000/api/medical-records/doctor/${doctorId}`
+    : 'http://localhost:5000/api/medical-records';
+    
+  const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to fetch records');
   return res.json();
 }

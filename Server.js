@@ -236,6 +236,61 @@ app.get('/api/medical-records', (req, res) => {
   });
 });
 
+// Add authentication middleware (simplified example)
+const authenticate = (req, res, next) => {
+  // In a real app, verify JWT token here
+  const userId = req.headers['user-id']; // Temporary - use proper auth in production
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+  req.user = { id: userId };
+  next();
+};
+
+// Update the doctor records endpoint
+app.get('/api/medical-records/doctor/:doctorId', authenticate, (req, res) => {
+  const requestedDoctorId = req.params.doctorId;
+  const authenticatedUserId = req.user.id;
+
+  // Verify the requesting user is the same as the doctor they're requesting
+  if (requestedDoctorId !== authenticatedUserId) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+
+  db.query(
+    'SELECT * FROM medical_records WHERE doctorId = ?',
+    [requestedDoctorId],
+    (err, results) => {
+      if (err) {
+        console.error('DB error fetching doctor records:', err);
+        return res.status(500).json({ message: 'Failed to fetch records' });
+      }
+      
+      const records = results.map(r => ({
+        ...r,
+        symptoms: deserializeSymptoms(r.symptoms),
+      }));
+      
+      res.json(records);
+    }
+  );
+});
+
+// Add doctors endpoint
+app.get('/api/doctors', (req, res) => {
+  db.query(
+    "SELECT id, firstName, lastName FROM users WHERE role = 'doctor'",
+    (err, results) => {
+      if (err) {
+        console.error('DB error fetching doctors:', err);
+        return res.status(500).json({ message: 'Failed to fetch doctors' });
+      }
+      res.json(results);
+    }
+  );
+});
+
+
 // POST create new medical record
 app.post('/api/medical-records', (req, res) => {
 console.log('POST /api/medical-records body:', req.body);
