@@ -57,12 +57,17 @@ const ViewMessage: React.FC<ViewMessageProps> = ({
           )}
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
             message.is_read 
-              ? 'bg-green-100 text-green-800' 
-              : 'bg-blue-100 text-blue-800'
+              ? 'bg-green-100 text-green-800 border border-green-300' 
+              : 'bg-blue-100 text-blue-800 border border-blue-300'
           }`}>
             <CheckCircle className="h-4 w-4 mr-1" />
             {message.is_read ? 'Read' : 'Unread'}
           </span>
+          {message.is_read && (
+            <span className="text-xs text-gray-500">
+              (Read just now)
+            </span>
+          )}
         </div>
       </div>
 

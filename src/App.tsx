@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { WebSocketProvider } from './context/WebSocketContext';
+import { NotificationProvider } from './context/NotificationContext';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 
 // Pages
@@ -23,8 +25,10 @@ import PrescriptionsPage from './pages/PrescriptionsPage';
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
+      <WebSocketProvider>
+        <NotificationProvider>
+          <Router>
+            <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/signin" element={<SignInPage />} />
           <Route path="/signup" element={<SignUpPage />} />
@@ -129,7 +133,9 @@ const App: React.FC = () => {
 
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
-      </Router>
+        </Router>
+        </NotificationProvider>
+      </WebSocketProvider>
     </AuthProvider>
   );
 };

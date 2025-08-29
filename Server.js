@@ -4,11 +4,35 @@ import mysqlPromise from "mysql2/promise";
 import bcrypt from "bcryptjs";
 import cors from "cors";
 import dotenv from "dotenv";
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 dotenv.config();
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "http://localhost:5173", // Your frontend URL
+    methods: ["GET", "POST"]
+  }
+});
+
 app.use(express.json());
 app.use(cors());
+
+// WebSocket connection handling
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+  
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
+// Function to broadcast ward updates to all connected clients
+function broadcastWardUpdate(type, data) {
+  io.emit('wardUpdate', { type, data });
+}
 
 // MySQL Connection
 // Validate required environment variables early for clearer errors
@@ -108,29 +132,35 @@ async function populateInitialData(appConn) {
           receiverId: '4', // Jane Smith (patient)
           subject: 'Test Results Available',
           content: 'Your recent blood test results are now available. Please schedule a follow-up appointment to discuss the results.',
-          priority: 'normal'
+          priority: 'normal',
+          is_read: false,
+          status: 'sent'
         },
         {
           senderId: '4', // Jane Smith (patient)
           receiverId: '2', // Dr. Sarah Johnson
           subject: 'Side Effects Question',
           content: 'I\'ve been experiencing some side effects from the new medication. Should I continue taking it?',
-          priority: 'urgent'
+          priority: 'urgent',
+          is_read: false,
+          status: 'sent'
         },
         {
           senderId: '2', // Dr. Sarah Johnson
           receiverId: '4', // Jane Smith (patient)
           subject: 'Appointment Confirmation',
           content: 'Your appointment for next week has been confirmed. Please arrive 15 minutes early for paperwork.',
-          priority: 'normal'
+          priority: 'normal',
+          is_read: false,
+          status: 'sent'
         }
       ];
 
       for (const message of mockMessages) {
         await appConn.query(`
-          INSERT INTO messages (senderId, receiverId, subject, content, priority)
-          VALUES (?, ?, ?, ?, ?)
-        `, [message.senderId, message.receiverId, message.subject, message.content, message.priority]);
+          INSERT INTO messages (senderId, receiverId, subject, content, priority, is_read, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [message.senderId, message.receiverId, message.subject, message.content, message.priority, message.is_read, message.status]);
       }
       console.log(`✅ Added ${mockMessages.length} messages to database`);
     }
@@ -755,7 +785,13 @@ app.post('/api/wards', (req, res) => {
         console.error('DB error fetching created ward:', err);
         return res.status(500).json({ message: 'Ward created but failed to fetch details' });
       }
-      res.status(201).json(wardResults[0]);
+      
+      const newWard = wardResults[0];
+      
+      // Broadcast the new ward to all connected clients
+      broadcastWardUpdate('created', newWard);
+      
+      res.status(201).json(newWard);
     });
   });
 });
@@ -791,7 +827,13 @@ app.put('/api/wards/:id', (req, res) => {
         console.error('DB error fetching updated ward:', err);
         return res.status(500).json({ message: 'Ward updated but failed to fetch details' });
       }
-      res.json(wardResults[0]);
+      
+      const updatedWard = wardResults[0];
+      
+      // Broadcast the updated ward to all connected clients
+      broadcastWardUpdate('updated', updatedWard);
+      
+      res.json(updatedWard);
     });
   });
 });
@@ -810,6 +852,9 @@ app.delete('/api/wards/:id', (req, res) => {
     if (results.affectedRows === 0) {
       return res.status(404).json({ message: 'Ward not found' });
     }
+    
+    // Broadcast the deleted ward ID to all connected clients
+    broadcastWardUpdate('deleted', { id });
     
     res.json({ message: 'Ward deleted successfully' });
   });
@@ -1025,7 +1070,7 @@ app.patch('/api/messages/:id/read', (req, res) => {
 (async () => {
   try {
     await ensureDatabaseAndTables();
-    app.listen(5000, () => console.log("🚀 Server running on port 5000"));
+    httpServer.listen(5000, () => console.log("🚀 Server running on port 5000"));
   } catch (error) {
     console.error("❌ Failed to initialize database:", error);
     process.exit(1);

@@ -201,6 +201,11 @@ const MessagesPage: React.FC = () => {
     setSelectedMessage(message);
   };
 
+  const handleBackFromMessage = () => {
+    setSelectedMessage(null);
+    // Refresh the message list to show updated read status
+    fetchData();
+  };
 
   const handleReply = async (content: string) => {
     if (selectedMessage && user) {
@@ -269,71 +274,16 @@ const MessagesPage: React.FC = () => {
               }
             </p>
 
-            {/* Communication Flow Diagram */}
-            <div className="bg-blue-50 rounded-lg p-6 mb-6 max-w-2xl mx-auto">
-              <h4 className="text-sm font-medium text-blue-900 mb-4">How messaging works:</h4>
-              
-              {user?.role === 'patient' ? (
-                <div className="flex items-center justify-center space-x-4 text-sm">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <span className="text-blue-700 font-medium">You (Patient)</span>
-                  </div>
-                  
-                  <ArrowRight className="w-5 h-5 text-blue-400" />
-                  
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-green-600" />
-                    </div>
-                    <span className="text-green-700 font-medium">Doctor</span>
-                  </div>
-                  
-                  <ArrowRight className="w-5 h-5 text-blue-400" />
-                  
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                      <Send className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <span className="text-purple-700 font-medium">Get Response</span>
-                  </div>
-                </div>
-              ) : user?.role === 'doctor' ? (
-                <div className="flex items-center justify-center space-x-4 text-sm">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-green-600" />
-                    </div>
-                    <span className="text-green-700 font-medium">Patient</span>
-                  </div>
-                  
-                  <ArrowRight className="w-5 h-5 text-blue-400" />
-                  
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <span className="text-blue-700 font-medium">You (Doctor)</span>
-                  </div>
-                  
-                  <ArrowRight className="w-5 h-5 text-blue-400" />
-                  
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                      <Send className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <span className="text-purple-700 font-medium">Reply</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm text-blue-700">
-                  <p>• Patients can message doctors for medical advice</p>
-                  <p>• Doctors can respond to patient inquiries</p>
-                  <p>• Admins can message both doctors and patients</p>
-                </div>
-              )}
+            {/* Simple Info */}
+            <div className="bg-blue-50 rounded-lg p-4 mb-6">
+              <p className="text-sm text-blue-700">
+                {user?.role === 'patient' 
+                  ? "• Send messages to your doctor for medical advice"
+                  : user?.role === 'doctor'
+                  ? "• Patients can send you health questions"
+                  : "• Users can message each other based on their roles"
+                }
+              </p>
             </div>
 
             {/* Available Recipients Info */}
@@ -409,7 +359,7 @@ const MessagesPage: React.FC = () => {
         <ViewMessage
           message={selectedMessage}
           users={users}
-          onBack={() => setSelectedMessage(null)}
+          onBack={handleBackFromMessage}
           onReply={handleReply}
         />
       );
@@ -417,8 +367,8 @@ const MessagesPage: React.FC = () => {
 
     return (
       <>
-
-        <div className="mb-6 flex justify-between items-center">
+        {/* Simple Search and Actions */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
@@ -430,21 +380,20 @@ const MessagesPage: React.FC = () => {
             />
           </div>
 
-          
-          {/* Refresh Button */}
-          <Button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            leftIcon={<RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />}
-            className="ml-4"
-          >
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              leftIcon={<RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />}
+              variant="outline"
+            >
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-
-          
+        {/* Messages List */}
+        <div className="bg-white rounded-lg shadow-sm border">
           {filteredMessages.length > 0 ? (
             <MessageList
               messages={filteredMessages}
@@ -455,9 +404,8 @@ const MessagesPage: React.FC = () => {
             renderEmptyState()
           )}
         </div>
-
         
-        {/* Last Refresh Info */}
+        {/* Simple Last Update Info */}
         <div className="mt-4 text-center text-xs text-gray-500">
           Last updated: {lastRefresh.toLocaleTimeString()}
         </div>
