@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Send, X, Paperclip } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import { User } from '../../types';
+import { User } from '../../api/usersApi';
 
 interface ComposeMessageProps {
   recipients: User[];
-  onSend: (subject: string, content: string, recipientId: string) => void;
+  onSend: (subject: string, content: string, recipientId: string, priority?: 'normal' | 'urgent') => void;
   onCancel: () => void;
 }
 
@@ -18,11 +18,12 @@ const ComposeMessage: React.FC<ComposeMessageProps> = ({
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [recipientId, setRecipientId] = useState('');
+  const [priority, setPriority] = useState<'normal' | 'urgent'>('normal');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (subject && content && recipientId) {
-      onSend(subject, content, recipientId);
+      onSend(subject, content, recipientId, priority);
     }
   };
 
@@ -53,6 +54,20 @@ const ComposeMessage: React.FC<ComposeMessageProps> = ({
         onChange={(e) => setSubject(e.target.value)}
         required
       />
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Priority:
+        </label>
+        <select
+          value={priority}
+          onChange={(e) => setPriority(e.target.value as 'normal' | 'urgent')}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+        >
+          <option value="normal">Normal</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">

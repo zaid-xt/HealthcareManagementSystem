@@ -104,59 +104,24 @@ async function populateInitialData(appConn) {
       
       const mockMessages = [
         {
-          senderId: 'doctor1',
-          receiverId: 'nurse1',
-          subject: 'Patient Update - Room 302',
-          content: 'Patient in room 302 needs immediate attention. Blood pressure is elevated.',
-          priority: 'urgent'
-        },
-        {
-          senderId: 'admin1',
-          receiverId: 'doctor1',
-          subject: 'New Patient Assignment',
-          content: 'You have been assigned a new patient. Please review the case file.',
-          priority: 'normal'
-        },
-        {
-          senderId: 'nurse1',
-          receiverId: 'doctor1',
-          subject: 'Medication Request',
-          content: 'Patient requesting pain medication. Current prescription seems insufficient.',
-          priority: 'urgent'
-        },
-        {
-          senderId: 'doctor2',
-          receiverId: 'admin1',
-          subject: 'Equipment Maintenance',
-          content: 'MRI machine in radiology needs maintenance. Please schedule technician.',
-          priority: 'normal'
-        },
-        {
-          senderId: 'admin1',
-          receiverId: 'nurse1',
-          subject: 'Staff Meeting Reminder',
-          content: 'Monthly staff meeting tomorrow at 9 AM in conference room A.',
-          priority: 'normal'
-        },
-        {
-          senderId: 'doctor1',
-          receiverId: 'patient1',
+          senderId: '2', // Dr. Sarah Johnson
+          receiverId: '4', // Jane Smith (patient)
           subject: 'Test Results Available',
-          content: 'Your recent blood test results are now available. Please schedule follow-up.',
+          content: 'Your recent blood test results are now available. Please schedule a follow-up appointment to discuss the results.',
           priority: 'normal'
         },
         {
-          senderId: 'patient1',
-          receiverId: 'doctor1',
+          senderId: '4', // Jane Smith (patient)
+          receiverId: '2', // Dr. Sarah Johnson
           subject: 'Side Effects Question',
-          content: 'I\'ve been experiencing some side effects from the new medication.',
+          content: 'I\'ve been experiencing some side effects from the new medication. Should I continue taking it?',
           priority: 'urgent'
         },
         {
-          senderId: 'doctor1',
-          receiverId: 'patient1',
+          senderId: '2', // Dr. Sarah Johnson
+          receiverId: '4', // Jane Smith (patient)
           subject: 'Appointment Confirmation',
-          content: 'Your appointment for next week has been confirmed. See you then!',
+          content: 'Your appointment for next week has been confirmed. Please arrive 15 minutes early for paperwork.',
           priority: 'normal'
         }
       ];
@@ -847,6 +812,47 @@ app.delete('/api/wards/:id', (req, res) => {
     }
     
     res.json({ message: 'Ward deleted successfully' });
+  });
+});
+
+// ==================== USER CRUD OPERATIONS ====================
+
+// GET all users (with optional role filter)
+app.get('/api/users', (req, res) => {
+  const { role } = req.query;
+  let sql = 'SELECT id, name, email, role, contactNumber FROM users';
+  const params = [];
+  
+  if (role) {
+    sql += ' WHERE role = ?';
+    params.push(role);
+  }
+  
+  sql += ' ORDER BY name ASC';
+  
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error('DB error fetching users:', err);
+      return res.status(500).json({ message: 'Failed to fetch users' });
+    }
+    res.json(results);
+  });
+});
+
+// GET single user by ID
+app.get('/api/users/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = 'SELECT id, name, email, role, contactNumber FROM users WHERE id = ?';
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('DB error fetching user:', err);
+      return res.status(500).json({ message: 'Failed to fetch user' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(results[0]);
   });
 });
 
