@@ -586,7 +586,7 @@ app.get('/api/medical-records/doctor/:doctorId', authenticate, (req, res) => {
 // Add doctors endpoint
 app.get('/api/doctors', (req, res) => {
   db.query(
-    "SELECT id, firstName, lastName FROM users WHERE role = 'doctor'",
+     "SELECT id, name, email, contactNumber FROM users WHERE role = 'doctor'",
     (err, results) => {
       if (err) {
         console.error('DB error fetching doctors:', err);
@@ -596,7 +596,6 @@ app.get('/api/doctors', (req, res) => {
     }
   );
 });
-
 
 // POST create new medical record
 app.post('/api/medical-records', (req, res) => {
@@ -718,7 +717,7 @@ app.delete('/api/medical-records/:id', (req, res) => {
 });
 
 app.get('/api/patients', (req, res) => {
-  const sql = "SELECT id, name, email FROM users WHERE role = 'patient'";
+  const sql = "SELECT id, name, email, contactNumber FROM users WHERE role = 'patient'";
   db.query(sql, (err, results) => {
     if (err) {
       console.error('DB error fetching patients:', err);
