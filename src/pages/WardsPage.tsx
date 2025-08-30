@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { admittances, patients } from '../utils/mockData';
 import type { Ward } from '../types';
 import { fetchWards, addWard, updateWard, deleteWard } from '../api/wardsApi';
+import { useWardUpdates } from '../hooks/useWardUpdates';
 
 const WardsPage: React.FC = () => {
   const { user } = useAuth();
@@ -25,6 +26,28 @@ const WardsPage: React.FC = () => {
   const [wardItems, setWardItems] = useState<Ward[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Real-time ward update handlers
+  const handleWardCreated = (newWard: Ward) => {
+    setWardItems(prev => [...prev, { ...newWard, id: String(newWard.id) }]);
+  };
+
+  const handleWardUpdated = (updatedWard: Ward) => {
+    setWardItems(prev => prev.map(ward => 
+      ward.id === String(updatedWard.id) ? { ...updatedWard, id: String(updatedWard.id) } : ward
+    ));
+  };
+
+  const handleWardDeleted = (wardId: string) => {
+    setWardItems(prev => prev.filter(ward => ward.id !== wardId));
+  };
+
+  // Use real-time ward updates
+  const { isConnected } = useWardUpdates({
+    onWardCreated: handleWardCreated,
+    onWardUpdated: handleWardUpdated,
+    onWardDeleted: handleWardDeleted
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -41,6 +64,22 @@ const WardsPage: React.FC = () => {
     })();
     return () => { mounted = false; };
   }, []);
+
+  // Fallback: Refresh data every 30 seconds if WebSocket is not connected
+  useEffect(() => {
+    if (isConnected) return; // Don't need fallback if WebSocket is working
+    
+    const interval = setInterval(async () => {
+      try {
+        const data = await fetchWards();
+        setWardItems(data);
+      } catch (e: any) {
+        console.log('Fallback refresh failed:', e?.message);
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [isConnected]);
 
   const handleAddWard = async (wardData: Omit<Ward, 'id'>) => {
     try {
@@ -335,6 +374,16 @@ const WardsPage: React.FC = () => {
               <div className="flex items-center gap-3">
                 <Building className="h-8 w-8 text-blue-600" />
                 <h1 className="text-3xl font-bold text-gray-900">Hospital Wards</h1>
+                <div className={`flex items-center gap-2 text-xs px-2 py-1 rounded-full ${
+                  isConnected 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  <div className={`w-2 h-2 rounded-full ${
+                    isConnected ? 'bg-green-500' : 'bg-red-500'
+                  }`}></div>
+                  {isConnected ? 'Live Updates' : 'Offline'}
+                </div>
               </div>
               {canManageWards && !isAddingWard && !editingWard && (
                 <Button

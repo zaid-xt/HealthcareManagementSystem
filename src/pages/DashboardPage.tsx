@@ -9,12 +9,36 @@ import { useAuth } from '../context/AuthContext';
 import { patients, appointments, labs, prescriptions } from '../utils/mockData';
 import type { Ward } from '../types';
 import { fetchWards } from '../api/wardsApi';
+import { useWardUpdates } from '../hooks/useWardUpdates';
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const [wards, setWards] = useState<Ward[]>([]);
   const [wardsLoading, setWardsLoading] = useState(true);
   const [wardsError, setWardsError] = useState<string | null>(null);
+  
+  // Real-time ward update handlers
+  const handleWardCreated = (newWard: Ward) => {
+    setWards(prev => [...prev, { ...newWard, id: String(newWard.id) }]);
+  };
+
+  const handleWardUpdated = (updatedWard: Ward) => {
+    setWards(prev => prev.map(ward => 
+      ward.id === String(updatedWard.id) ? { ...updatedWard, id: String(updatedWard.id) } : ward
+    ));
+  };
+
+  const handleWardDeleted = (wardId: string) => {
+    setWards(prev => prev.filter(ward => ward.id !== wardId));
+  };
+
+  // Use real-time ward updates
+  const { isConnected } = useWardUpdates({
+    onWardCreated: handleWardCreated,
+    onWardUpdated: handleWardUpdated,
+    onWardDeleted: handleWardDeleted
+  });
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -30,6 +54,22 @@ const DashboardPage: React.FC = () => {
     })();
     return () => { mounted = false; };
   }, []);
+
+  // Fallback: Refresh data every 30 seconds if WebSocket is not connected
+  useEffect(() => {
+    if (isConnected) return; // Don't need fallback if WebSocket is working
+    
+    const interval = setInterval(async () => {
+      try {
+        const data = await fetchWards();
+        setWards(data);
+      } catch (e: any) {
+        console.log('Fallback refresh failed:', e?.message);
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [isConnected]);
   const navigate = useNavigate();
   
   // Filter appointments to only show today's and upcoming
@@ -55,13 +95,25 @@ const DashboardPage: React.FC = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-                <div className="text-sm text-gray-600">
-                  {today.toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-gray-600">
+                    {today.toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </div>
+                  <div className={`flex items-center gap-2 text-xs px-2 py-1 rounded-full ${
+                    isConnected 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full ${
+                      isConnected ? 'bg-green-500' : 'bg-red-500'
+                    }`}></div>
+                    {isConnected ? 'Live Updates' : 'Offline'}
+                  </div>
                 </div>
               </div>
               

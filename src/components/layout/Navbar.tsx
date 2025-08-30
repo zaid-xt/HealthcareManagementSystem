@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, ChevronDown, LogOut, User, Settings, BellRing } from 'lucide-react';
+import { Menu, X, ChevronDown, LogOut, User, Settings, BellRing, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useWebSocket } from '../../context/WebSocketContext';
 import Button from '../ui/Button';
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
+  const { isConnected } = useWebSocket();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -94,6 +96,20 @@ const Navbar: React.FC = () => {
           <div className="hidden md:flex md:items-center md:justify-end md:flex-1 lg:w-0">
             {isAuthenticated ? (
               <div className="ml-4 flex items-center md:ml-6 space-x-4">
+                {/* WebSocket Connection Status */}
+                <div className={`flex items-center gap-2 text-xs px-2 py-1 rounded-full ${
+                  isConnected 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {isConnected ? (
+                    <Wifi className="h-3 w-3" />
+                  ) : (
+                    <WifiOff className="h-3 w-3" />
+                  )}
+                  {isConnected ? 'Live' : 'Offline'}
+                </div>
+                
                 <button 
                   type="button" 
                   className="rounded-full bg-gray-100 p-1 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
