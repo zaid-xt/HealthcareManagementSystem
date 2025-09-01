@@ -7,6 +7,8 @@ import dotenv from "dotenv";
 import { createServer } from "http";
 import { Server } from "socket.io";
 
+
+
 dotenv.config();
 const app = express();
 const httpServer = createServer(app);
@@ -36,13 +38,14 @@ function broadcastWardUpdate(type, data) {
 
 // MySQL Connection
 // Validate required environment variables early for clearer errors
-const requiredEnvVars = ["DB_HOST", "DB_USER", "DB_NAME"]; 
-const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key] || String(process.env[key]).trim() === "");
+const requiredEnvVars = ["DB_HOST", "DB_USER", "DB_NAME", "DB_PASS"]; 
+const missingEnvVars = requiredEnvVars.filter((key) => process.env[key] === undefined);
 
 if (missingEnvVars.length > 0) {
   console.error(
     `Missing required environment variables: ${missingEnvVars.join(", ")}.\n` +
-    "Create a .env file with DB_HOST, DB_USER, DB_PASS (if needed), and DB_NAME."
+    "Create a .env file with DB_HOST, DB_USER, DB_PASS, and DB_NAME.\n" +
+    "If your database has no password, set DB_PASS to an empty value (e.g., DB_PASS=)."
   );
   process.exit(1);
 }
@@ -1076,3 +1079,142 @@ app.patch('/api/messages/:id/read', (req, res) => {
     process.exit(1);
   }
 })();
+
+// ==================== PATIENT CRUD OPERATIONS ====================
+
+// GET all patients
+app.get('/api/patients', (req, res) => {
+  const sql = "SELECT id, name, email, contactNumber FROM users WHERE role = 'patient'";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('DB error fetching patients:', err);
+      return res.status(500).json({ message: 'Failed to fetch patients' });
+    }
+    res.json(results);
+  });
+});
+
+// GET single patient by ID
+app.get('/api/patients/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = "SELECT id, name, email, contactNumber FROM users WHERE id = ? AND role = 'patient'";
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('DB error fetching patient:', err);
+      return res.status(500).json({ message: 'Failed to fetch patient' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+    res.json(results[0]);
+  });
+});
+
+// POST create new patient
+app.post('/api/patients', async (req, res) => {
+  try {
+    const { name, email, contactNumber } = req.body;
+
+    if (!name || !email || !contactNumber) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Check if email already exists
+    db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
+      if (err) {
+        console.error('DB error checking email:', err);
+        return res.status(500).json({ message: 'Database error' });
+      }
+      
+      if (results.length > 0) {
+        return res.status(400).json({ message: 'Email already registered' });
+      }
+
+      // Create a temporary password (in real app, you might want to handle this differently)
+      const tempPassword = await bcrypt.hash('temp123', 10);
+      
+      const sql = `
+        INSERT INTO users (name, email, password, role, contactNumber)
+        VALUES (?, ?, ?, 'patient', ?)
+      `;
+      
+      db.query(sql, [name, email, tempPassword, contactNumber], (err, results) => {
+        if (err) {
+          console.error('DB error creating patient:', err);
+          return res.status(500).json({ message: 'Failed to create patient' });
+        }
+        
+        // Fetch the created patient to return
+        db.query("SELECT id, name, email, contactNumber FROM users WHERE id = ?", [results.insertId], (err, patientResults) => {
+          if (err) {
+            console.error('DB error fetching created patient:', err);
+            return res.status(500).json({ message: 'Patient created but failed to fetch details' });
+          }
+          res.status(201).json(patientResults[0]);
+        });
+      });
+    });
+  } catch (err) {
+    console.error('Error creating patient:', err);
+    res.status(500).json({ message: 'Failed to create patient' });
+  }
+});
+
+// PUT update patient
+app.put('/api/patients/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, email, contactNumber } = req.body;
+
+  if (!name || !email || !contactNumber) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  const sql = `
+    UPDATE users 
+    SET name = ?, email = ?, contactNumber = ?
+    WHERE id = ? AND role = 'patient'
+  `;
+  
+  db.query(sql, [name, email, contactNumber, id], (err, results) => {
+    if (err) {
+      console.error('DB error updating patient:', err);
+      return res.status(500).json({ message: 'Failed to update patient' });
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+    
+    // Fetch the updated patient to return
+    db.query("SELECT id, name, email, contactNumber FROM users WHERE id = ?", [id], (err, patientResults) => {
+      if (err) {
+        console.error('DB error fetching updated patient:', err);
+        return res.status(500).json({ message: 'Patient updated but failed to fetch details' });
+      }
+      res.json(patientResults[0]);
+    });
+  });
+});
+
+// DELETE patient
+app.delete('/api/patients/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = "DELETE FROM users WHERE id = ? AND role = 'patient'";
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('DB error deleting patient:', err);
+      return res.status(500).json({ message: 'Failed to delete patient' });
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+    
+    res.json({ message: 'Patient deleted successfully' });
+  });
+});
+
+
+

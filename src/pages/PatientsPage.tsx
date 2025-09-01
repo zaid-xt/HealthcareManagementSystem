@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Search, Filter, FileText, Plus, Edit2, Trash2, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/layout/Navbar';
@@ -8,7 +8,7 @@ import AddPatientForm from '../components/patients/AddPatientForm';
 import EditPatientForm from '../components/patients/EditPatientForm';
 import ViewPatient from '../components/patients/ViewPatient';
 import AddMedicalRecordForm from '../components/medical-records/AddMedicalRecordForm';
-import { patients, doctors } from '../utils/mockData';
+import { doctors } from '../utils/mockData';
 import type { Patient, MedicalRecord } from '../types';
 
 const PatientsPage: React.FC = () => {
@@ -17,6 +17,8 @@ const PatientsPage: React.FC = () => {
   const isDoctor = user?.role === 'doctor';
   const canManagePatients = isAdmin || isDoctor;
   
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddingPatient, setIsAddingPatient] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
@@ -30,38 +32,105 @@ const PatientsPage: React.FC = () => {
   });
   const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
 
-  const handleAddPatient = (patientData: Omit<Patient, 'id'>) => {
-    // In a real app, this would make an API call
-    const newPatient: Patient = {
-      id: `patient${patients.length + 1}`,
-      ...patientData
-    };
-    patients.push(newPatient);
-    setIsAddingPatient(false);
-  };
+  // Fetch patients from API
+  useEffect(() => {
+    fetchPatients();
+  }, []);
 
-  const handleUpdatePatient = (updatedPatient: Patient) => {
-    // In a real app, this would make an API call
-    const patientIndex = patients.findIndex(p => p.id === updatedPatient.id);
-    if (patientIndex !== -1) {
-      patients[patientIndex] = updatedPatient;
+  const fetchPatients = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/patients');
+      if (response.ok) {
+        const data = await response.json();
+        setPatients(data);
+      } else {
+        console.error('Failed to fetch patients');
+        
+        setPatients([]);
+      }
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+      setPatients([]);
+    } finally {
+      setIsLoading(false);
     }
-    setEditingPatient(null);
   };
 
-  const handleDeletePatient = () => {
+  const handleAddPatient = async (patientData: Omit<Patient, 'id'>) => {
+    try {
+      const response = await fetch('/api/patients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(patientData),
+      });
+
+      if (response.ok) {
+        const newPatient = await response.json();
+        setPatients(prev => [...prev, newPatient]);
+        setIsAddingPatient(false);
+        alert('Patient added successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to add patient: ${errorData.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error adding patient:', error);
+      alert('Error adding patient. Please check console for details.');
+    }
+  };
+
+  const handleUpdatePatient = async (updatedPatient: Patient) => {
+    try {
+      const response = await fetch(`/api/patients/${updatedPatient.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedPatient),
+      });
+
+      if (response.ok) {
+        const updated = await response.json();
+        setPatients(prev => prev.map(p => p.id === updatedPatient.id ? updated : p));
+        setEditingPatient(null);
+        alert('Patient updated successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to update patient: ${errorData.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error updating patient:', error);
+      alert('Error updating patient. Please check console for details.');
+    }
+  };
+
+  const handleDeletePatient = async () => {
     if (!patientToDelete) return;
     
-    // In a real app, this would make an API call
-    const patientIndex = patients.findIndex(p => p.id === patientToDelete.id);
-    if (patientIndex !== -1) {
-      patients.splice(patientIndex, 1);
+    try {
+      const response = await fetch(`/api/patients/${patientToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setPatients(prev => prev.filter(p => p.id !== patientToDelete.id));
+        setPatientToDelete(null);
+        alert('Patient deleted successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to delete patient: ${errorData.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting patient:', error);
+      alert('Error deleting patient. Please check console for details.');
     }
-    setPatientToDelete(null);
   };
 
   const handleAddMedicalRecord = (newRecord: MedicalRecord) => {
-    // In a real app, this would make an API call
+  
     const { medicalRecords } = require('../utils/mockData');
     medicalRecords.push(newRecord);
     setIsAddingMedicalRecord(false);
@@ -132,20 +201,29 @@ const PatientsPage: React.FC = () => {
       );
     }
 
-    if (isAddingMedicalRecord && viewingPatient) {
-      return (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">
-            Add Medical Record for {viewingPatient.firstName} {viewingPatient.lastName}
-          </h2>
-          <AddMedicalRecordForm
-            onSave={handleAddMedicalRecord}
-            onCancel={() => setIsAddingMedicalRecord(false)}
-            preselectedPatientId={viewingPatient.id}
-          />
-        </div>
-      );
-    }
+//{isAddingMedicalRecord && viewingPatient && (
+ // <div className="bg-white rounded-lg shadow-md p-6">
+   // <h2 className="text-xl font-semibold text-gray-900 mb-6">
+     // Add Medical Record for {viewingPatient.firstName} {viewingPatient.lastName}
+    //</h2>
+    //<AddMedicalRecordForm
+      //onSave={handleAddMedicalRecord}
+      //onCancel={() => setIsAddingMedicalRecord(false)}
+      //preselectedPatientId={viewingPatient.id}
+    ///>
+  //</div>
+//)}
+
+
+
+if (isAddingMedicalRecord && !viewingPatient) {
+  return (
+    <div className="text-center py-8">
+      <p className="text-gray-500">Loading patient information...</p>
+    </div>
+  );
+}
+
 
     if (isAddingPatient) {
       return (
@@ -382,7 +460,7 @@ const PatientsPage: React.FC = () => {
                             leftIcon={<FileText className="h-4 w-4" />}
                             onClick={() => {
                               setViewingPatient(patient);
-                              // Auto-switch to records tab when clicking Records button
+                            
                               setTimeout(() => {
                                 const recordsTab = document.querySelector('[data-tab="records"]') as HTMLButtonElement;
                                 if (recordsTab) recordsTab.click();
@@ -425,6 +503,22 @@ const PatientsPage: React.FC = () => {
       </>
     );
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Navbar />
+        <div className="flex">
+          <Sidebar />
+          <main className="flex-1 p-8">
+            <div className="max-w-7xl mx-auto text-center py-12">
+              <p className="text-gray-600">Loading patients...</p>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   if (!canManagePatients) {
     return (
@@ -469,7 +563,7 @@ const PatientsPage: React.FC = () => {
 
             {renderContent()}
 
-            {/* Delete Confirmation Modal */}
+           
             {patientToDelete && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
