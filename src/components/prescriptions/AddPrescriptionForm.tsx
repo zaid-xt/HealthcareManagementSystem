@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, X, Plus, Trash2 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useAuth } from '../../context/AuthContext';
-import { patients, medicines, orderLines } from '../../utils/mockData';
-import type { Prescription, OrderLine } from '../../types';
+import { PrescriptionData } from '../../api/prescriptionsApi';
 
 interface AddPrescriptionFormProps {
-  onSave: (prescription: Partial<Prescription>) => void;
+  patients: any[];
+  doctors: any[];
+  medicines: any[];
+  onSave: (prescription: PrescriptionData) => void;
   onCancel: () => void;
 }
 
@@ -20,7 +22,13 @@ interface MedicationItem {
   instructions: string;
 }
 
-const AddPrescriptionForm: React.FC<AddPrescriptionFormProps> = ({ onSave, onCancel }) => {
+const AddPrescriptionForm: React.FC<AddPrescriptionFormProps> = ({ 
+  patients, 
+  doctors, 
+  medicines, 
+  onSave, 
+  onCancel 
+}) => {
   const { user } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -76,34 +84,16 @@ const AddPrescriptionForm: React.FC<AddPrescriptionFormProps> = ({ onSave, onCan
     
     if (!validateForm()) return;
 
-    const prescriptionId = `presc${Date.now()}`;
-    
-    // Create prescription
-    const newPrescription: Partial<Prescription> = {
+    // Prepare prescription data
+    const prescriptionData: PrescriptionData = {
       ...formData,
-      doctorId: user?.id || '',
+      doctorId: user?.role === 'doctor' ? user.id : formData.doctorId || '',
+      medications: medications.filter(med => 
+        med.medicineId && med.dosage && med.frequency && med.duration && med.quantity > 0
+      )
     };
 
-    // Create order lines for medications
-    const validMedications = medications.filter(med => 
-      med.medicineId && med.dosage && med.frequency && med.duration && med.quantity > 0
-    );
-
-    validMedications.forEach((med, index) => {
-      const orderLine: OrderLine = {
-        id: `order${Date.now()}_${index}`,
-        prescriptionId,
-        medicineId: med.medicineId,
-        dosage: med.dosage,
-        frequency: med.frequency,
-        duration: med.duration,
-        quantity: med.quantity,
-        instructions: med.instructions
-      };
-      orderLines.push(orderLine);
-    });
-
-    onSave(newPrescription);
+    onSave(prescriptionData);
   };
 
   const addMedication = () => {
@@ -145,7 +135,7 @@ const AddPrescriptionForm: React.FC<AddPrescriptionFormProps> = ({ onSave, onCan
             <option value="">Select a patient</option>
             {patients.map(patient => (
               <option key={patient.id} value={patient.id}>
-                {patient.firstName} {patient.lastName} (ID: {patient.patientId})
+                {patient.name} (ID: {patient.id})
               </option>
             ))}
           </select>
@@ -153,6 +143,27 @@ const AddPrescriptionForm: React.FC<AddPrescriptionFormProps> = ({ onSave, onCan
             <p className="mt-1 text-sm text-red-600">{errors.patientId}</p>
           )}
         </div>
+
+        {user?.role !== 'doctor' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Doctor *
+            </label>
+            <select
+              value={formData.doctorId || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, doctorId: e.target.value }))}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              required
+            >
+              <option value="">Select a doctor</option>
+              {doctors.map(doctor => (
+                <option key={doctor.id} value={doctor.id}>
+                  Dr. {doctor.firstName} {doctor.lastName} - {doctor.specialization}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <Input
           label="Date"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pill, Plus, Search, Filter, Edit2, Eye, Trash2, User, Calendar } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
@@ -7,11 +7,24 @@ import AddPrescriptionForm from '../components/prescriptions/AddPrescriptionForm
 import EditPrescriptionForm from '../components/prescriptions/EditPrescriptionForm';
 import ViewPrescription from '../components/prescriptions/ViewPrescription';
 import { useAuth } from '../context/AuthContext';
-import { prescriptions, orderLines, patients, doctors, medicines } from '../utils/mockData';
+import {
+  fetchPrescriptions,
+  createPrescription,
+  updatePrescription,
+  deletePrescription,
+  fetchMedicines,
+  fetchDoctors,
+  PrescriptionData
+} from '../api/prescriptionsApi';
 import type { Prescription, OrderLine } from '../types';
 
 const PrescriptionsPage: React.FC = () => {
   const { user } = useAuth();
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [patients, setPatients] = useState<any[]>([]);
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [medicines, setMedicines] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddingPrescription, setIsAddingPrescription] = useState(false);
   const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
   const [viewingPrescription, setViewingPrescription] = useState<Prescription | null>(null);
@@ -25,30 +38,56 @@ const PrescriptionsPage: React.FC = () => {
   });
   const [prescriptionToDelete, setPrescriptionToDelete] = useState<Prescription | null>(null);
 
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [prescriptionsData, patientsData, doctorsData, medicinesData] = await Promise.all([
+        fetchPrescriptions(),
+        fetch('http://localhost:5000/api/patients').then(res => res.json()),
+        fetchDoctors(),
+        fetchMedicines()
+      ]);
+      
+      setPrescriptions(prescriptionsData);
+      setPatients(patientsData);
+      setDoctors(doctorsData);
+      setMedicines(medicinesData);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+      alert('Failed to load prescription data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Filter prescriptions based on user role
   const filteredPrescriptions = prescriptions.filter(prescription => {
-    const patient = patients.find(p => p.id === prescription.patientId);
-    const doctor = doctors.find(d => d.id === prescription.doctorId);
+    const patient = patients.find(p => String(p.id) === String(prescription.patientId));
+    const doctor = doctors.find(d => String(d.id) === String(prescription.doctorId));
     
     // Role-based filtering
     if (user?.role === 'patient') {
       // Patients can only see their own prescriptions
-      if (prescription.patientId !== user.id) return false;
+      if (String(prescription.patientId) !== String(user.id)) return false;
     } else if (user?.role === 'doctor') {
       // Doctors can only see prescriptions they created
-      if (prescription.doctorId !== user.id) return false;
+      if (String(prescription.doctorId) !== String(user.id)) return false;
     }
     // Admins can see all prescriptions
 
     // Search filtering
-    const searchString = `${patient?.firstName} ${patient?.lastName} ${doctor?.firstName} ${doctor?.lastName}`.toLowerCase();
+    const searchString = `${patient?.name || prescription.patientName} ${doctor?.firstName} ${doctor?.lastName}`.toLowerCase();
     const matchesSearch = searchString.includes(searchTerm.toLowerCase());
 
     // Status filtering
     const matchesStatus = !filters.status || prescription.status === filters.status;
 
     // Doctor filtering
-    const matchesDoctor = !filters.doctorId || prescription.doctorId === filters.doctorId;
+    const matchesDoctor = !filters.doctorId || String(prescription.doctorId) === String(filters.doctorId);
 
     // Date filtering
     const matchesDateRange = 
@@ -58,41 +97,44 @@ const PrescriptionsPage: React.FC = () => {
     return matchesSearch && matchesStatus && matchesDoctor && matchesDateRange;
   });
 
-  const handleAddPrescription = (newPrescription: Partial<Prescription>) => {
-    const prescription: Prescription = {
-      id: `presc${Date.now()}`,
-      createdBy: user?.id || '',
-      ...newPrescription as Prescription
-    };
-    prescriptions.push(prescription);
-    setIsAddingPrescription(false);
-  };
-
-  const handleUpdatePrescription = (updatedPrescription: Prescription) => {
-    const prescriptionIndex = prescriptions.findIndex(p => p.id === updatedPrescription.id);
-    if (prescriptionIndex !== -1) {
-      prescriptions[prescriptionIndex] = updatedPrescription;
+  const handleAddPrescription = async (prescriptionData: PrescriptionData) => {
+    try {
+      await createPrescription(prescriptionData);
+      await loadData(); // Reload data to get updated list
+      setIsAddingPrescription(false);
+      alert('Prescription created successfully!');
+    } catch (error) {
+      console.error('Failed to create prescription:', error);
+      alert('Failed to create prescription');
     }
-    setEditingPrescription(null);
   };
 
-  const handleDeletePrescription = () => {
+  const handleUpdatePrescription = async (prescriptionData: PrescriptionData) => {
+    if (!editingPrescription) return;
+    
+    try {
+      await updatePrescription(editingPrescription.id, prescriptionData);
+      await loadData(); // Reload data to get updated list
+      setEditingPrescription(null);
+      alert('Prescription updated successfully!');
+    } catch (error) {
+      console.error('Failed to update prescription:', error);
+      alert('Failed to update prescription');
+    }
+  };
+
+  const handleDeletePrescription = async () => {
     if (!prescriptionToDelete) return;
     
-    const prescriptionIndex = prescriptions.findIndex(p => p.id === prescriptionToDelete.id);
-    if (prescriptionIndex !== -1) {
-      prescriptions.splice(prescriptionIndex, 1);
-      
-      // Also remove associated order lines
-      const orderLinesToRemove = orderLines.filter(ol => ol.prescriptionId === prescriptionToDelete.id);
-      orderLinesToRemove.forEach(ol => {
-        const orderIndex = orderLines.findIndex(o => o.id === ol.id);
-        if (orderIndex !== -1) {
-          orderLines.splice(orderIndex, 1);
-        }
-      });
+    try {
+      await deletePrescription(prescriptionToDelete.id);
+      await loadData(); // Reload data to get updated list
+      setPrescriptionToDelete(null);
+      alert('Prescription deleted successfully!');
+    } catch (error) {
+      console.error('Failed to delete prescription:', error);
+      alert('Failed to delete prescription');
     }
-    setPrescriptionToDelete(null);
   };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -124,6 +166,14 @@ const PrescriptionsPage: React.FC = () => {
   };
 
   const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      );
+    }
+
     if (viewingPrescription) {
       return (
         <ViewPrescription
@@ -142,6 +192,9 @@ const PrescriptionsPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Create New Prescription</h2>
           <AddPrescriptionForm
+            patients={patients}
+            doctors={doctors}
+            medicines={medicines}
             onSave={handleAddPrescription}
             onCancel={() => setIsAddingPrescription(false)}
           />
@@ -155,6 +208,7 @@ const PrescriptionsPage: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Prescription</h2>
           <EditPrescriptionForm
             prescription={editingPrescription}
+            medicines={medicines}
             onSave={handleUpdatePrescription}
             onCancel={() => setEditingPrescription(null)}
           />
@@ -294,25 +348,25 @@ const PrescriptionsPage: React.FC = () => {
                           <div className="flex items-center">
                             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                               <span className="font-medium text-sm">
-                                {patient?.firstName[0]}{patient?.lastName[0]}
+                                {(prescription.patientName || patient?.name || 'U')[0]}
                               </span>
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
-                                {patient?.firstName} {patient?.lastName}
+                                {prescription.patientName || patient?.name || 'Unknown Patient'}
                               </div>
                               <div className="text-sm text-gray-500">
-                                ID: {patient?.patientId}
+                                ID: {prescription.patientId}
                               </div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            Dr. {doctor?.firstName} {doctor?.lastName}
+                            Dr. {prescription.doctorFirstName} {prescription.doctorLastName}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {doctor?.specialization}
+                            {doctor?.specialization || 'General Practice'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -323,14 +377,10 @@ const PrescriptionsPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm text-gray-900">
-                            {prescriptionOrderLines.length} medication(s)
+                            Medications prescribed
                           </div>
                           <div className="text-sm text-gray-500">
-                            {prescriptionOrderLines.slice(0, 2).map(ol => {
-                              const medicine = medicines.find(m => m.id === ol.medicineId);
-                              return medicine?.name;
-                            }).filter(Boolean).join(', ')}
-                            {prescriptionOrderLines.length > 2 && '...'}
+                            View details for medication list
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -348,7 +398,7 @@ const PrescriptionsPage: React.FC = () => {
                           >
                             View
                           </Button>
-                          {(user?.role === 'doctor' && prescription.doctorId === user.id) || user?.role === 'admin' ? (
+                          {(user?.role === 'doctor' && String(prescription.doctorId) === String(user.id)) || user?.role === 'admin' ? (
                             <>
                               <Button
                                 variant="outline"

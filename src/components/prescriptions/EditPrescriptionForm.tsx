@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Save, X, Plus, Trash2 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import { medicines, orderLines } from '../../utils/mockData';
-import type { Prescription, OrderLine } from '../../types';
+import { PrescriptionData } from '../../api/prescriptionsApi';
+import type { Prescription } from '../../types';
 
 interface EditPrescriptionFormProps {
   prescription: Prescription;
-  onSave: (prescription: Prescription) => void;
+  medicines: any[];
+  onSave: (prescription: PrescriptionData) => void;
   onCancel: () => void;
 }
 
@@ -23,6 +24,7 @@ interface MedicationItem {
 
 const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
   prescription,
+  medicines,
   onSave,
   onCancel
 }) => {
@@ -34,18 +36,16 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
 
   const [medications, setMedications] = useState<MedicationItem[]>([]);
 
-  useEffect(() => {
-    // Load existing medications for this prescription
-    const existingOrderLines = orderLines.filter(ol => ol.prescriptionId === prescription.id);
-    if (existingOrderLines.length > 0) {
-      setMedications(existingOrderLines.map(ol => ({
-        id: ol.id,
-        medicineId: ol.medicineId,
-        dosage: ol.dosage,
-        frequency: ol.frequency,
-        duration: ol.duration,
-        quantity: ol.quantity,
-        instructions: ol.instructions
+  // Initialize with existing medications or empty form
+  React.useEffect(() => {
+    if (prescription.medications && prescription.medications.length > 0) {
+      setMedications(prescription.medications.map(med => ({
+        medicineId: med.medicineId,
+        dosage: med.dosage,
+        frequency: med.frequency,
+        duration: med.duration,
+        quantity: med.quantity,
+        instructions: med.instructions || ''
       })));
     } else {
       setMedications([{
@@ -57,7 +57,7 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
         instructions: ''
       }]);
     }
-  }, [prescription.id]);
+  }, [prescription]);
 
   const [errors, setErrors] = useState({
     medications: ''
@@ -87,45 +87,19 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
     
     if (!validateForm()) return;
 
-    // Update prescription
-    const updatedPrescription: Prescription = {
-      ...prescription,
-      ...formData
+    // Prepare prescription data for API
+    const prescriptionData: PrescriptionData = {
+      patientId: prescription.patientId,
+      doctorId: prescription.doctorId,
+      date: formData.date,
+      status: formData.status,
+      notes: formData.notes,
+      medications: medications.filter(med => 
+        med.medicineId && med.dosage && med.frequency && med.duration && med.quantity > 0
+      )
     };
 
-    // Update order lines
-    // First, remove existing order lines for this prescription
-    const existingOrderLineIds = orderLines
-      .filter(ol => ol.prescriptionId === prescription.id)
-      .map(ol => ol.id);
-    
-    existingOrderLineIds.forEach(id => {
-      const index = orderLines.findIndex(ol => ol.id === id);
-      if (index !== -1) {
-        orderLines.splice(index, 1);
-      }
-    });
-
-    // Add updated order lines
-    const validMedications = medications.filter(med => 
-      med.medicineId && med.dosage && med.frequency && med.duration && med.quantity > 0
-    );
-
-    validMedications.forEach((med, index) => {
-      const orderLine: OrderLine = {
-        id: med.id || `order${Date.now()}_${index}`,
-        prescriptionId: prescription.id,
-        medicineId: med.medicineId,
-        dosage: med.dosage,
-        frequency: med.frequency,
-        duration: med.duration,
-        quantity: med.quantity,
-        instructions: med.instructions
-      };
-      orderLines.push(orderLine);
-    });
-
-    onSave(updatedPrescription);
+    onSave(prescriptionData);
   };
 
   const addMedication = () => {

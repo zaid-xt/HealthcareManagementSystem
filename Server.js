@@ -355,4 +355,312 @@ app.get('/api/patients', (req, res) => {
   });
 });
 
+// Prescription endpoints
+
+// GET all prescriptions
+app.get('/api/prescriptions', (req, res) => {
+  const sql = `
+    SELECT p.*, u.name as patientName, d.firstName as doctorFirstName, d.lastName as doctorLastName
+    FROM prescriptions p
+    LEFT JOIN users u ON p.patientId = u.id
+    LEFT JOIN doctors d ON p.doctorId = d.id
+    ORDER BY p.date DESC
+  `;
+  
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('DB error fetching prescriptions:', err);
+      return res.status(500).json({ message: 'Failed to fetch prescriptions' });
+    }
+    res.json(results);
+  });
+});
+
+// POST create new prescription
+app.post('/api/prescriptions', (req, res) => {
+  const { patientId, doctorId, date, status, notes, medications } = req.body;
+
+  if (!patientId || !doctorId || !date || !medications || medications.length === 0) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  // Start transaction
+  db.beginTransaction((err) => {
+    if (err) {
+      console.error('Transaction start error:', err);
+      return res.status(500).json({ message: 'Database transaction error' });
+    }
+
+    // Insert prescription
+    const prescriptionSql = `
+      INSERT INTO prescriptions (patientId, doctorId, date, status, notes, createdBy)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    db.query(prescriptionSql, [patientId, doctorId, date, status || 'active', notes || '', doctorId], (err, prescriptionResult) => {
+      if (err) {
+        return db.rollback(() => {
+          console.error('DB error inserting prescription:', err);
+          res.status(500).json({ message: 'Failed to create prescription' });
+        });
+      }
+
+      const prescriptionId = prescriptionResult.insertId;
+
+      // Insert order lines
+      const orderLineSql = `
+        INSERT INTO order_lines (prescriptionId, medicineId, dosage, frequency, duration, quantity, instructions)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      let completedInserts = 0;
+      const totalInserts = medications.length;
+
+      medications.forEach((medication) => {
+        db.query(orderLineSql, [
+          prescriptionId,
+          medication.medicineId,
+          medication.dosage,
+          medication.frequency,
+          medication.duration,
+          medication.quantity,
+          medication.instructions || ''
+        ], (err) => {
+          if (err) {
+            return db.rollback(() => {
+              console.error('DB error inserting order line:', err);
+              res.status(500).json({ message: 'Failed to create prescription medications' });
+            });
+          }
+
+          completedInserts++;
+          if (completedInserts === totalInserts) {
+            db.commit((err) => {
+              if (err) {
+                return db.rollback(() => {
+                  console.error('Transaction commit error:', err);
+                  res.status(500).json({ message: 'Failed to save prescription' });
+                });
+              }
+              res.status(201).json({ id: prescriptionId, message: 'Prescription created successfully' });
+            });
+          }
+        });
+      });
+    });
+  });
+});
+
+// PUT update prescription
+app.put('/api/prescriptions/:id', (req, res) => {
+  const prescriptionId = req.params.id;
+  const { patientId, doctorId, date, status, notes, medications } = req.body;
+
+  if (!patientId || !doctorId || !date || !medications || medications.length === 0) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  // Start transaction
+  db.beginTransaction((err) => {
+    if (err) {
+      console.error('Transaction start error:', err);
+      return res.status(500).json({ message: 'Database transaction error' });
+    }
+
+    // Update prescription
+    const prescriptionSql = `
+      UPDATE prescriptions 
+      SET patientId = ?, doctorId = ?, date = ?, status = ?, notes = ?
+      WHERE id = ?
+    `;
+
+    db.query(prescriptionSql, [patientId, doctorId, date, status, notes || '', prescriptionId], (err, result) => {
+      if (err) {
+        return db.rollback(() => {
+          console.error('DB error updating prescription:', err);
+          res.status(500).json({ message: 'Failed to update prescription' });
+        });
+      }
+
+      if (result.affectedRows === 0) {
+        return db.rollback(() => {
+          res.status(404).json({ message: 'Prescription not found' });
+        });
+      }
+
+      // Delete existing order lines
+      const deleteOrderLinesSql = 'DELETE FROM order_lines WHERE prescriptionId = ?';
+      db.query(deleteOrderLinesSql, [prescriptionId], (err) => {
+        if (err) {
+          return db.rollback(() => {
+            console.error('DB error deleting order lines:', err);
+            res.status(500).json({ message: 'Failed to update prescription medications' });
+          });
+        }
+
+        // Insert new order lines
+        const orderLineSql = `
+          INSERT INTO order_lines (prescriptionId, medicineId, dosage, frequency, duration, quantity, instructions)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        let completedInserts = 0;
+        const totalInserts = medications.length;
+
+        medications.forEach((medication) => {
+          db.query(orderLineSql, [
+            prescriptionId,
+            medication.medicineId,
+            medication.dosage,
+            medication.frequency,
+            medication.duration,
+            medication.quantity,
+            medication.instructions || ''
+          ], (err) => {
+            if (err) {
+              return db.rollback(() => {
+                console.error('DB error inserting order line:', err);
+                res.status(500).json({ message: 'Failed to update prescription medications' });
+              });
+            }
+
+            completedInserts++;
+            if (completedInserts === totalInserts) {
+              db.commit((err) => {
+                if (err) {
+                  return db.rollback(() => {
+                    console.error('Transaction commit error:', err);
+                    res.status(500).json({ message: 'Failed to save prescription changes' });
+                  });
+                }
+                res.json({ message: 'Prescription updated successfully' });
+              });
+            }
+          });
+        });
+      });
+    });
+  });
+});
+
+// DELETE prescription
+app.delete('/api/prescriptions/:id', (req, res) => {
+  const prescriptionId = req.params.id;
+
+  // Start transaction
+  db.beginTransaction((err) => {
+    if (err) {
+      console.error('Transaction start error:', err);
+      return res.status(500).json({ message: 'Database transaction error' });
+    }
+
+    // Delete order lines first (foreign key constraint)
+    const deleteOrderLinesSql = 'DELETE FROM order_lines WHERE prescriptionId = ?';
+    db.query(deleteOrderLinesSql, [prescriptionId], (err) => {
+      if (err) {
+        return db.rollback(() => {
+          console.error('DB error deleting order lines:', err);
+          res.status(500).json({ message: 'Failed to delete prescription medications' });
+        });
+      }
+
+      // Delete prescription
+      const deletePrescriptionSql = 'DELETE FROM prescriptions WHERE id = ?';
+      db.query(deletePrescriptionSql, [prescriptionId], (err, result) => {
+        if (err) {
+          return db.rollback(() => {
+            console.error('DB error deleting prescription:', err);
+            res.status(500).json({ message: 'Failed to delete prescription' });
+          });
+        }
+
+        if (result.affectedRows === 0) {
+          return db.rollback(() => {
+            res.status(404).json({ message: 'Prescription not found' });
+          });
+        }
+
+        db.commit((err) => {
+          if (err) {
+            return db.rollback(() => {
+              console.error('Transaction commit error:', err);
+              res.status(500).json({ message: 'Failed to delete prescription' });
+            });
+          }
+          res.json({ message: 'Prescription deleted successfully' });
+        });
+      });
+    });
+  });
+});
+
+// GET prescription by ID with order lines
+app.get('/api/prescriptions/:id', (req, res) => {
+  const prescriptionId = req.params.id;
+  
+  const prescriptionSql = `
+    SELECT p.*, u.name as patientName, d.firstName as doctorFirstName, d.lastName as doctorLastName
+    FROM prescriptions p
+    LEFT JOIN users u ON p.patientId = u.id
+    LEFT JOIN doctors d ON p.doctorId = d.id
+    WHERE p.id = ?
+  `;
+  
+  const orderLinesSql = `
+    SELECT ol.*, m.name as medicineName, m.dosageForm
+    FROM order_lines ol
+    LEFT JOIN medicines m ON ol.medicineId = m.id
+    WHERE ol.prescriptionId = ?
+  `;
+
+  db.query(prescriptionSql, [prescriptionId], (err, prescriptionResults) => {
+    if (err) {
+      console.error('DB error fetching prescription:', err);
+      return res.status(500).json({ message: 'Failed to fetch prescription' });
+    }
+
+    if (prescriptionResults.length === 0) {
+      return res.status(404).json({ message: 'Prescription not found' });
+    }
+
+    db.query(orderLinesSql, [prescriptionId], (err, orderLinesResults) => {
+      if (err) {
+        console.error('DB error fetching order lines:', err);
+        return res.status(500).json({ message: 'Failed to fetch prescription details' });
+      }
+
+      const prescription = {
+        ...prescriptionResults[0],
+        medications: orderLinesResults
+      };
+
+      res.json(prescription);
+    });
+  });
+});
+
+// GET medicines for prescription form
+app.get('/api/medicines', (req, res) => {
+  const sql = 'SELECT * FROM medicines WHERE availableQuantity > 0 ORDER BY name';
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('DB error fetching medicines:', err);
+      return res.status(500).json({ message: 'Failed to fetch medicines' });
+    }
+    res.json(results);
+  });
+});
+
+// GET doctors for prescription form
+app.get('/api/doctors', (req, res) => {
+  const sql = 'SELECT id, firstName, lastName, specialization FROM doctors ORDER BY firstName, lastName';
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('DB error fetching doctors:', err);
+      return res.status(500).json({ message: 'Failed to fetch doctors' });
+    }
+    res.json(results);
+  });
+});
+
 app.listen(5000, () => console.log("🚀 Server running on port 5000"));
