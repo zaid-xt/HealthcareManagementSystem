@@ -4,7 +4,7 @@ export interface PrescriptionData {
   patientId: string;
   doctorId: string;
   date: string;
-  status: 'active' | 'completed' | 'cancelled';
+  status: string;
   notes?: string;
   medications: {
     medicineId: string;

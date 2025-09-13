@@ -340,7 +340,6 @@ const PrescriptionsPage: React.FC = () => {
                   {filteredPrescriptions.map((prescription) => {
                     const patient = patients.find(p => p.id === prescription.patientId);
                     const doctor = doctors.find(d => d.id === prescription.doctorId);
-                    const prescriptionOrderLines = orderLines.filter(ol => ol.prescriptionId === prescription.id);
                     
                     return (
                       <tr key={prescription.id} className="hover:bg-gray-50">

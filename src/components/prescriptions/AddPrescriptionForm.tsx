@@ -3,7 +3,7 @@ import { Save, X, Plus, Trash2 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useAuth } from '../../context/AuthContext';
-import { PrescriptionData } from '../../api/prescriptionsApi';
+import type { PrescriptionData } from '../../api/prescriptionsApi';
 
 interface AddPrescriptionFormProps {
   patients: any[];
@@ -11,15 +11,6 @@ interface AddPrescriptionFormProps {
   medicines: any[];
   onSave: (prescription: PrescriptionData) => void;
   onCancel: () => void;
-}
-
-interface MedicationItem {
-  medicineId: string;
-  dosage: string;
-  frequency: string;
-  duration: string;
-  quantity: number;
-  instructions: string;
 }
 
 const AddPrescriptionForm: React.FC<AddPrescriptionFormProps> = ({ 
@@ -34,11 +25,11 @@ const AddPrescriptionForm: React.FC<AddPrescriptionFormProps> = ({
   const [formData, setFormData] = useState({
     patientId: '',
     date: new Date().toISOString().split('T')[0],
-    status: 'active' as Prescription['status'],
+    status: 'active' as 'active' | 'completed' | 'cancelled',
     notes: ''
   });
 
-  const [medications, setMedications] = useState<MedicationItem[]>([
+  const [medications, setMedications] = useState([
     {
       medicineId: '',
       dosage: '',
@@ -87,7 +78,7 @@ const AddPrescriptionForm: React.FC<AddPrescriptionFormProps> = ({
     // Prepare prescription data
     const prescriptionData: PrescriptionData = {
       ...formData,
-      doctorId: user?.role === 'doctor' ? user.id : formData.doctorId || '',
+      doctorId: user?.role === 'doctor' ? user.id : (formData as any).doctorId || '',
       medications: medications.filter(med => 
         med.medicineId && med.dosage && med.frequency && med.duration && med.quantity > 0
       )
@@ -113,7 +104,7 @@ const AddPrescriptionForm: React.FC<AddPrescriptionFormProps> = ({
     }
   };
 
-  const updateMedication = (index: number, field: keyof MedicationItem, value: string | number) => {
+  const updateMedication = (index: number, field: string, value: string | number) => {
     setMedications(prev => prev.map((med, i) => 
       i === index ? { ...med, [field]: value } : med
     ));
@@ -150,8 +141,8 @@ const AddPrescriptionForm: React.FC<AddPrescriptionFormProps> = ({
               Doctor *
             </label>
             <select
-              value={formData.doctorId || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, doctorId: e.target.value }))}
+              value={(formData as any).doctorId || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, doctorId: e.target.value } as any))}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             >
@@ -179,7 +170,7 @@ const AddPrescriptionForm: React.FC<AddPrescriptionFormProps> = ({
           </label>
           <select
             value={formData.status}
-            onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as Prescription['status'] }))}
+            onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'active' | 'completed' | 'cancelled' }))}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           >
             <option value="active">Active</option>

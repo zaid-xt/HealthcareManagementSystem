@@ -37,7 +37,7 @@ const ViewPrescription: React.FC<ViewPrescriptionProps> = ({
 
   const canEdit = (user?.role === 'doctor' && String(prescription.doctorId) === String(user.id)) || user?.role === 'admin';
 
-  const getStatusColor = (status: Prescription['status']) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
         return 'bg-green-100 text-green-800';
