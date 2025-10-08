@@ -5,8 +5,6 @@ import StaffCard from '../components/staff/StaffCard';
 import DepartmentCoverage from '../components/staff/DepartmentCoverage';
 import ViewStaffDetails from '../components/staff/ViewStaffDetails';
 import Input from '../components/ui/Input';
-import Navbar from '../components/layout/Navbar';
-import Sidebar from '../components/layout/Sidebar';
 
 type ViewMode = 'roster' | 'schedule';
 
@@ -92,20 +90,15 @@ export default function StaffPage() {
   const departments = Array.from(new Set(staff.map((s) => s.department))).sort();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <div className="flex">
-        <Sidebar />
-        <main className="flex-1 p-6">
-          <div className="space-y-6 max-w-7xl mx-auto">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Staff Directory</h1>
-                <p className="text-gray-600 mt-1">
-                  Manage and view hospital staff roster and schedules
-                </p>
-              </div>
-            </div>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Staff Directory</h1>
+          <p className="text-gray-600 mt-1">
+            Manage and view hospital staff roster and schedules
+          </p>
+        </div>
+      </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -209,9 +202,6 @@ export default function StaffPage() {
       {selectedStaff && (
         <ViewStaffDetails staff={selectedStaff} onClose={() => setSelectedStaff(null)} />
       )}
-          </div>
-        </main>
-      </div>
     </div>
   );
 }
