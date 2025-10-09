@@ -307,7 +307,234 @@ async function ensureDatabaseAndTables() {
       INDEX idx_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
+// ==================== APPOINTMENT CRUD OPERATIONS ====================
 
+// Create appointments table
+// In the ensureDatabaseAndTables function, update the appointments table creation:
+await appConn.query(`
+  CREATE TABLE IF NOT EXISTS appointments (
+    id VARCHAR(50) PRIMARY KEY,
+    patientId VARCHAR(50) NOT NULL,
+    doctorId VARCHAR(50) NOT NULL,
+    date DATE NOT NULL,
+    startTime TIME NOT NULL,
+    endTime TIME NOT NULL,
+    type ENUM('regular', 'follow-up', 'emergency') NOT NULL DEFAULT 'regular',
+    status ENUM('scheduled', 'completed', 'cancelled', 'no-show') NOT NULL DEFAULT 'scheduled',
+    notes TEXT,
+    createdBy VARCHAR(50) NOT NULL,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_patient (patientId),
+    INDEX idx_doctor (doctorId),
+    INDEX idx_date (date),
+    INDEX idx_status (status),
+    INDEX idx_createdBy (createdBy)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`);
+console.log('✅ Appointments table structure verified');
+
+// GET all appointments (with optional filters)
+app.get('/api/appointments', (req, res) => {
+  const { patientId, doctorId, status, date } = req.query;
+  let sql = `
+    SELECT a.*, 
+           u_patient.name as patientName,
+           u_doctor.name as doctorName,
+           u_creator.name as createdByName
+    FROM appointments a
+    LEFT JOIN users u_patient ON a.patientId = u_patient.id
+    LEFT JOIN users u_doctor ON a.doctorId = u_doctor.id
+    LEFT JOIN users u_creator ON a.createdBy = u_creator.id
+  `;
+  const params = [];
+  
+  if (patientId || doctorId || status || date) {
+    sql += ' WHERE';
+    const conditions = [];
+    
+    if (patientId) {
+      conditions.push('a.patientId = ?');
+      params.push(patientId);
+    }
+    if (doctorId) {
+      conditions.push('a.doctorId = ?');
+      params.push(doctorId);
+    }
+    if (status) {
+      conditions.push('a.status = ?');
+      params.push(status);
+    }
+    if (date) {
+      conditions.push('a.date = ?');
+      params.push(date);
+    }
+    
+    sql += ' ' + conditions.join(' AND ');
+  }
+  
+  sql += ' ORDER BY a.date DESC, a.startTime DESC';
+  
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error('DB error fetching appointments:', err);
+      return res.status(500).json({ message: 'Failed to fetch appointments' });
+    }
+    res.json(results);
+  });
+});
+
+// GET single appointment by ID
+app.get('/api/appointments/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = `
+    SELECT a.*, 
+           u_patient.name as patientName,
+           u_doctor.name as doctorName,
+           u_creator.name as createdByName
+    FROM appointments a
+    LEFT JOIN users u_patient ON a.patientId = u_patient.id
+    LEFT JOIN users u_doctor ON a.doctorId = u_doctor.id
+    LEFT JOIN users u_creator ON a.createdBy = u_creator.id
+    WHERE a.id = ?
+  `;
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('DB error fetching appointment:', err);
+      return res.status(500).json({ message: 'Failed to fetch appointment' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+    res.json(results[0]);
+  });
+});
+
+// POST create new appointment
+// POST create new appointment - with better error handling
+app.post('/api/appointments', (req, res) => {
+  console.log('📥 Incoming appointment data:', req.body);
+  
+  const { id, patientId, doctorId, date, startTime, endTime, type, status, notes, createdBy } = req.body;
+  
+  if (!id || !patientId || !doctorId || !date || !startTime || !endTime || !createdBy) {
+    console.log('❌ Missing required fields:', { id, patientId, doctorId, date, startTime, endTime, createdBy });
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  const sql = `
+    INSERT INTO appointments (id, patientId, doctorId, date, startTime, endTime, type, status, notes, createdBy)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  
+  console.log('🚀 Executing SQL:', sql);
+  console.log('📋 With parameters:', [id, patientId, doctorId, date, startTime, endTime, type || 'regular', status || 'scheduled', notes || '', createdBy]);
+  
+  db.query(sql, [
+    id, patientId, doctorId, date, startTime, endTime, 
+    type || 'regular', status || 'scheduled', notes || '', createdBy
+  ], (err, results) => {
+    if (err) {
+      console.error('❌ Database error creating appointment:', err);
+      console.error('❌ SQL error code:', err.code);
+      console.error('❌ SQL error message:', err.sqlMessage);
+      return res.status(500).json({ 
+        message: 'Failed to create appointment',
+        error: err.message 
+      });
+    }
+    
+    console.log('✅ Appointment created successfully, ID:', id);
+    
+    // Fetch the created appointment to return
+    db.query(`
+      SELECT a.*, 
+             u_patient.name as patientName,
+             u_doctor.name as doctorName,
+             u_creator.name as createdByName
+      FROM appointments a
+      LEFT JOIN users u_patient ON a.patientId = u_patient.id
+      LEFT JOIN users u_doctor ON a.doctorId = u_doctor.id
+      LEFT JOIN users u_creator ON a.createdBy = u_creator.id
+      WHERE a.id = ?
+    `, [id], (err, appointmentResults) => {
+      if (err) {
+        console.error('❌ DB error fetching created appointment:', err);
+        return res.status(500).json({ message: 'Appointment created but failed to fetch details' });
+      }
+      console.log('✅ Fetched created appointment:', appointmentResults[0]);
+      res.status(201).json(appointmentResults[0]);
+    });
+  });
+});
+
+// PUT update appointment
+app.put('/api/appointments/:id', (req, res) => {
+  const { id } = req.params;
+  const { patientId, doctorId, date, startTime, endTime, type, status, notes } = req.body;
+  
+  if (!patientId || !doctorId || !date || !startTime || !endTime) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  const sql = `
+    UPDATE appointments 
+    SET patientId = ?, doctorId = ?, date = ?, startTime = ?, endTime = ?, type = ?, status = ?, notes = ?
+    WHERE id = ?
+  `;
+  
+  db.query(sql, [
+    patientId, doctorId, date, startTime, endTime, type, status, notes, id
+  ], (err, results) => {
+    if (err) {
+      console.error('DB error updating appointment:', err);
+      return res.status(500).json({ message: 'Failed to update appointment' });
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+    
+    // Fetch the updated appointment to return
+    db.query(`
+      SELECT a.*, 
+             u_patient.name as patientName,
+             u_doctor.name as doctorName,
+             u_creator.name as createdByName
+      FROM appointments a
+      LEFT JOIN users u_patient ON a.patientId = u_patient.id
+      LEFT JOIN users u_doctor ON a.doctorId = u_doctor.id
+      LEFT JOIN users u_creator ON a.createdBy = u_creator.id
+      WHERE a.id = ?
+    `, [id], (err, appointmentResults) => {
+      if (err) {
+        console.error('DB error fetching updated appointment:', err);
+        return res.status(500).json({ message: 'Appointment updated but failed to fetch details' });
+      }
+      res.json(appointmentResults[0]);
+    });
+  });
+});
+
+// DELETE appointment
+app.delete('/api/appointments/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = 'DELETE FROM appointments WHERE id = ?';
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('DB error deleting appointment:', err);
+      return res.status(500).json({ message: 'Failed to delete appointment' });
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+    
+    res.json({ message: 'Appointment deleted successfully' });
+  });
+});
   // Ensure doctorId uses VARCHAR to support IDs like 'DOC001'
   try {
     await appConn.query(`ALTER TABLE users MODIFY COLUMN doctorId VARCHAR(50) NULL`);
@@ -331,7 +558,35 @@ async function ensureDatabaseAndTables() {
     });
   });
 }
+// Add this function after ensureDatabaseAndTables
+async function updateAppointmentsTable() {
+  try {
+    const appConn = await mysqlPromise.createConnection({ 
+      host: process.env.DB_HOST, 
+      port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
+      user: process.env.DB_USER, 
+      password: process.env.DB_PASS, 
+      database: process.env.DB_NAME 
+    });
 
+    // Check if createdBy column exists
+    const [columns] = await appConn.execute(`
+      SELECT COLUMN_NAME 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'appointments' AND COLUMN_NAME = 'createdBy'
+    `, [process.env.DB_NAME]);
+
+    if (columns.length === 0) {
+      console.log('🔄 Adding createdBy column to appointments table...');
+      await appConn.execute(`ALTER TABLE appointments ADD COLUMN createdBy VARCHAR(50) NOT NULL AFTER notes`);
+      console.log('✅ createdBy column added successfully');
+    }
+
+    await appConn.end();
+  } catch (error) {
+    console.error('❌ Error updating appointments table:', error);
+  }
+}
 // Signup endpoint
 app.post("/api/signup", async (req, res) => {
   try {
@@ -1066,9 +1321,11 @@ app.patch('/api/messages/:id/read', (req, res) => {
 });
 
 // Start server only after DB is ready
+// Start server only after DB is ready
 (async () => {
   try {
     await ensureDatabaseAndTables();
+    await updateAppointmentsTable(); // Add this line
     httpServer.listen(5000, () => console.log("🚀 Server running on port 5000"));
   } catch (error) {
     console.error("❌ Failed to initialize database:", error);

@@ -5,7 +5,7 @@ import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import AppointmentForm from '../components/appointments/AppointmentForm';
 import { useAuth } from '../context/AuthContext';
-import { appointments, patients } from '../utils/mockData';
+import { createAppointment } from '../api/appointmentsApi';
 import type { Appointment } from '../types';
 
 const NewAppointmentPage: React.FC = () => {
@@ -16,28 +16,27 @@ const NewAppointmentPage: React.FC = () => {
   const handleSubmit = async (appointmentData: Partial<Appointment>) => {
     setIsLoading(true);
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Create new appointment with all required fields
-    const newAppointment: Appointment = {
-      id: `appt-${Date.now()}`, // Generate unique ID
-      ...appointmentData,
-      patientId: user?.id || '',
-      status: 'scheduled',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    } as Appointment;
+    try {
+      // Create new appointment with all required fields including createdBy
+      const newAppointment: Partial<Appointment> = {
+        id: `appt-${Date.now()}`, // Generate unique ID
+        ...appointmentData,
+        patientId: user?.id || '',
+        status: 'scheduled',
+        createdBy: user?.id || '' // Set createdBy to current user
+      };
 
-    // Add to mock data (in a real app, this would be an API call)
-    appointments.push(newAppointment);
-    
-    setIsLoading(false);
-    
-    // Redirect to appointments page with success message
-    navigate('/appointments', { 
-      state: { message: 'Appointment scheduled successfully!' } 
-    });
+      await createAppointment(newAppointment);
+      
+      navigate('/appointments', { 
+        state: { message: 'Appointment scheduled successfully!' } 
+      });
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+      alert('Failed to create appointment');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

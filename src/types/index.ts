@@ -67,6 +67,11 @@ export interface Appointment {
   type: 'regular' | 'follow-up' | 'emergency';
   notes?: string;
   createdBy: string; // User ID of admin who created the appointment
+  createdAt?: string;
+  updatedAt?: string;
+  patientName?: string;
+  doctorName?: string;
+  createdByName?: string; // Added for display purposes
 }
 
 export interface Ward {

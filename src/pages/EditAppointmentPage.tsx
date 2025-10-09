@@ -5,7 +5,7 @@ import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import AppointmentForm from '../components/appointments/AppointmentForm';
 import { useAuth } from '../context/AuthContext';
-import { appointments, patients } from '../utils/mockData';
+import { fetchAppointment, updateAppointment } from '../api/appointmentsApi';
 import type { Appointment } from '../types';
 
 const EditAppointmentPage: React.FC = () => {
@@ -16,40 +16,42 @@ const EditAppointmentPage: React.FC = () => {
   const [appointment, setAppointment] = useState<Appointment | null>(null);
 
   useEffect(() => {
-    // Find the appointment to edit
-    const foundAppointment = appointments.find(appt => appt.id === id);
-    if (foundAppointment) {
-      setAppointment(foundAppointment);
-    } else {
-      navigate('/appointments', { 
-        state: { message: 'Appointment not found' } 
-      });
-    }
+    const loadAppointment = async () => {
+      if (!id) return;
+      
+      try {
+        const foundAppointment = await fetchAppointment(id);
+        setAppointment(foundAppointment);
+      } catch (error) {
+        console.error('Error loading appointment:', error);
+        navigate('/appointments', { 
+          state: { message: 'Appointment not found' } 
+        });
+      }
+    };
+
+    loadAppointment();
   }, [id, navigate]);
 
   const handleSubmit = async (appointmentData: Partial<Appointment>) => {
+    if (!id) return;
+    
     setIsLoading(true);
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Update appointment in mock data (in a real app, this would be an API call)
-    const updatedAppointments = appointments.map(appt => 
-      appt.id === id 
-        ? { ...appt, ...appointmentData, updatedAt: new Date().toISOString() }
-        : appt
-    );
-    
-    // Update the global appointments array
-    appointments.splice(0, appointments.length, ...updatedAppointments);
-    
-    setIsLoading(false);
-    
-    // Redirect to appointments page with success message
-    navigate('/appointments', { 
-      state: { message: 'Appointment updated successfully!' } 
-    });
+    try {
+      await updateAppointment(id, appointmentData);
+      
+      navigate('/appointments', { 
+        state: { message: 'Appointment updated successfully!' } 
+      });
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+      alert('Failed to update appointment');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
 
   if (!appointment) {
     return (

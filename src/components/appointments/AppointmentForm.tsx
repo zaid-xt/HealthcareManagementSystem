@@ -1,16 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, FileText, User, MapPin, Stethoscope, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
-import { doctors } from '../../utils/mockData';
+import { fetchDoctors } from '../../api/doctorsApi';
 import type { Appointment } from '../../types';
 
 interface AppointmentFormProps {
   onSubmit: (appointment: Partial<Appointment>) => void;
   isLoading?: boolean;
-  initialData?: Appointment; // Add this for edit mode
+  initialData?: Appointment;
+}
+
+// Simple interface for doctors from database
+interface Doctor {
+  id: string;
+  name: string;
+  email: string;
+  contactNumber: string;
 }
 
 const AppointmentForm: React.FC<AppointmentFormProps> = ({ 
@@ -20,6 +28,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
   
   const [formData, setFormData] = useState({
     doctorId: initialData?.doctorId || '',
@@ -29,7 +39,6 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
     notes: initialData?.notes || ''
   });
   
-  
   const [formErrors, setFormErrors] = useState({
     doctorId: '',
     date: '',
@@ -37,6 +46,23 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
   });
 
   const [currentStep, setCurrentStep] = useState(1);
+
+  useEffect(() => {
+    loadDoctors();
+  }, []);
+
+  const loadDoctors = async () => {
+    try {
+      setIsLoadingDoctors(true);
+      const doctorsData = await fetchDoctors();
+      setDoctors(doctorsData);
+    } catch (error) {
+      console.error('Error loading doctors:', error);
+      alert('Failed to load doctors list');
+    } finally {
+      setIsLoadingDoctors(false);
+    }
+  };
 
   // Filter available time slots based on selected date and doctor
   const availableTimeSlots = [
@@ -98,23 +124,30 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
     
     if (!validateStep2()) return;
     
+    // Calculate end time (30 minutes after start time)
     const [hours, minutes] = formData.time.split(':');
-    const startTime = `${formData.time}`;
-    const endTime = `${String(Number(hours) + (Number(minutes) + 30 >= 60 ? 1 : 0)).padStart(2, '0')}:${String((Number(minutes) + 30) % 60).padStart(2, '0')}`;
+    const startDate = new Date();
+    startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
     
-    onSubmit({
+    const endDate = new Date(startDate.getTime() + 30 * 60000); // 30 minutes
+    const endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+    
+    const submitData = {
       doctorId: formData.doctorId,
       patientId: user?.id || '',
       date: formData.date,
-      startTime,
-      endTime,
+      startTime: formData.time,
+      endTime: endTime,
       type: formData.type as Appointment['type'],
       notes: formData.notes,
-      status: 'scheduled'
-    });
+      status: 'scheduled' as const
+    };
+
+    console.log('📤 Appointment form submitting:', submitData);
+    onSubmit(submitData);
   };
 
-  const selectedDoctor = getDoctorDetails(formData.doctorId);
+  const selectedDoctor = doctors.find(d => d.id === formData.doctorId);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -153,44 +186,51 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Select a Doctor</h2>
               <p className="text-gray-600 mb-6">Choose from our specialist doctors</p>
               
-              <div className="grid gap-4">
-                {doctors.map(doctor => (
-                  <div
-                    key={doctor.id}
-                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                      formData.doctorId === doctor.id 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => setFormData(prev => ({ ...prev, doctorId: doctor.id }))}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-shrink-0">
-                        <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                          <User className="h-6 w-6" />
+              {isLoadingDoctors ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Loading doctors...</p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {doctors.map(doctor => (
+                    <div
+                      key={doctor.id}
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                        formData.doctorId === doctor.id 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => setFormData(prev => ({ ...prev, doctorId: doctor.id }))}
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                            <User className="h-6 w-6" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900">
+                            Dr. {doctor.name}
+                          </h3>
+                          <p className="text-sm text-gray-600 flex items-center mt-1">
+                            <Stethoscope className="h-4 w-4 mr-1" />
+                            General Practitioner
+                          </p>
+                          <p className="text-sm text-gray-500 flex items-center mt-1">
+                            <MapPin className="h-4 w-4 mr-1" />
+                            General Department
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500">Contact</div>
+                          <div className="font-semibold text-gray-900">{doctor.contactNumber}</div>
                         </div>
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">
-                          Dr. {doctor.firstName} {doctor.lastName}
-                        </h3>
-                        <p className="text-sm text-gray-600 flex items-center mt-1">
-                          <Stethoscope className="h-4 w-4 mr-1" />
-                          {doctor.specialization}
-                        </p>
-                        <p className="text-sm text-gray-500 flex items-center mt-1">
-                          <MapPin className="h-4 w-4 mr-1" />
-                          {doctor.department}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-gray-500">Experience</div>
-                        <div className="font-semibold text-gray-900">{doctor.experience} years</div>
-                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
               {formErrors.doctorId && (
                 <div className="flex items-center mt-2 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4 mr-1" />
@@ -216,9 +256,9 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">
-                        Dr. {selectedDoctor.firstName} {selectedDoctor.lastName}
+                        Dr. {selectedDoctor.name}
                       </h4>
-                      <p className="text-sm text-gray-600">{selectedDoctor.specialization}</p>
+                      <p className="text-sm text-gray-600">General Practitioner</p>
                     </div>
                   </div>
                 </div>
@@ -310,7 +350,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
                   <div className="flex items-center justify-between py-3 border-b border-gray-200">
                     <span className="font-medium text-gray-700">Doctor:</span>
                     <span className="text-gray-900">
-                      Dr. {selectedDoctor.firstName} {selectedDoctor.lastName}
+                      Dr. {selectedDoctor.name}
                     </span>
                   </div>
                 )}
@@ -329,7 +369,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
                 
                 <div className="flex items-center justify-between py-3 border-b border-gray-200">
                   <span className="font-medium text-gray-700">Time:</span>
-                  <span className="text-gray-900">{formData.time} - {formData.endTime}</span>
+                  <span className="text-gray-900">{formData.time} - {formData.time ? '30 mins' : ''}</span>
                 </div>
                 
                 <div className="flex items-center justify-between py-3 border-b border-gray-200">
@@ -377,7 +417,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
                 type="submit"
                 isLoading={isLoading}
               >
-                 {initialData ? 'Update Appointment' : 'Schedule Appointment'}
+                {initialData ? 'Update Appointment' : 'Schedule Appointment'}
               </Button>
             )}
           </div>

@@ -5,7 +5,7 @@ import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
-import { appointments, doctors, patients } from '../utils/mockData';
+import { fetchAppointments, deleteAppointment } from '../api/appointmentsApi';
 import type { Appointment } from '../types';
 
 const AppointmentsPage: React.FC = () => {
@@ -14,8 +14,13 @@ const AppointmentsPage: React.FC = () => {
   const location = useLocation();
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [localAppointments, setLocalAppointments] = useState<Appointment[]>(appointments);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showActionsMenu, setShowActionsMenu] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadAppointments();
+  }, [user]);
 
   // Show success message when redirected from new appointment
   useEffect(() => {
@@ -30,31 +35,42 @@ const AppointmentsPage: React.FC = () => {
     }
   }, [location.state]);
 
-  // Filter appointments based on user role
-  const filteredAppointments = localAppointments.filter(appointment => {
-    if (user?.role === 'patient') {
-      return appointment.patientId === user.id;
-    } else if (user?.role === 'doctor') {
-      return appointment.doctorId === user.id;
-    }
-    return true; // Admin sees all appointments
-  });
-
-  // Sort appointments by date (most recent first)
-  const sortedAppointments = [...filteredAppointments].sort((a, b) => 
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
-
-  const handleDeleteAppointment = (appointmentId: string) => {
-    if (window.confirm('Are you sure you want to delete this appointment?')) {
-      const updatedAppointments = localAppointments.filter(appt => appt.id !== appointmentId);
-      setLocalAppointments(updatedAppointments);
-      setShowActionsMenu(null);
+  const loadAppointments = async () => {
+    try {
+      setIsLoading(true);
+      const filters: any = {};
       
-      // Show success message
-      setSuccessMessage('Appointment deleted successfully');
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 5000);
+      if (user?.role === 'patient') {
+        filters.patientId = user.id;
+      } else if (user?.role === 'doctor') {
+        filters.doctorId = user.id;
+      }
+      // Admin sees all appointments (no filter)
+      
+      const data = await fetchAppointments(filters);
+      setAppointments(data);
+    } catch (error) {
+      console.error('Error loading appointments:', error);
+      alert('Failed to load appointments');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteAppointment = async (appointmentId: string) => {
+    if (window.confirm('Are you sure you want to delete this appointment?')) {
+      try {
+        await deleteAppointment(appointmentId);
+        setAppointments(prev => prev.filter(appt => appt.id !== appointmentId));
+        setShowActionsMenu(null);
+        
+        setSuccessMessage('Appointment deleted successfully');
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 5000);
+      } catch (error) {
+        console.error('Error deleting appointment:', error);
+        alert('Failed to delete appointment');
+      }
     }
   };
 
@@ -116,6 +132,11 @@ const AppointmentsPage: React.FC = () => {
       });
     }
   };
+
+  // Sort appointments by date (most recent first)
+  const sortedAppointments = [...appointments].sort((a, b) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -204,8 +225,6 @@ const AppointmentsPage: React.FC = () => {
                     </div>
                     <ul className="divide-y divide-gray-200">
                       {sortedAppointments.map(appointment => {
-                        const doctor = doctors.find(d => d.id === appointment.doctorId);
-                        const patient = patients.find(p => p.id === appointment.patientId);
                         const canModify = canModifyAppointment(appointment);
                         
                         return (
@@ -222,8 +241,8 @@ const AppointmentsPage: React.FC = () => {
                                     <div className="flex items-center space-x-2">
                                       <h3 className="text-lg font-medium text-gray-900">
                                         {user?.role === 'patient' 
-                                          ? `Dr. ${doctor?.firstName} ${doctor?.lastName}`
-                                          : `${patient?.firstName} ${patient?.lastName}`
+                                          ? `Dr. ${appointment.doctorName || 'Unknown Doctor'}`
+                                          : appointment.patientName || 'Unknown Patient'
                                         }
                                       </h3>
                                       <span className={`px-2 py-1 inline-flex items-center text-xs leading-4 font-medium rounded-full border ${getStatusColor(appointment.status)}`}>
@@ -235,12 +254,19 @@ const AppointmentsPage: React.FC = () => {
                                     </div>
                                     <p className="text-sm text-gray-600 mt-1 flex items-center">
                                       <Stethoscope className="h-4 w-4 mr-1" />
-                                      {doctor?.specialization}
+                                      General Practitioner
                                     </p>
                                     <p className="text-sm text-gray-500 mt-1 flex items-center">
                                       <MapPin className="h-4 w-4 mr-1" />
                                       {appointment.type.charAt(0).toUpperCase() + appointment.type.slice(1)} Appointment
                                     </p>
+                                    {/* Show who created the appointment for admin users */}
+                                    {user?.role === 'admin' && appointment.createdByName && (
+                                      <p className="text-sm text-gray-500 mt-1 flex items-center">
+                                        <User className="h-4 w-4 mr-1" />
+                                        Created by: {appointment.createdByName}
+                                      </p>
+                                    )}
                                     {appointment.notes && (
                                       <div className="mt-2 flex items-start text-sm text-gray-500">
                                         <FileText className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
