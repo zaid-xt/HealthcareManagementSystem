@@ -998,7 +998,7 @@ app.delete('/api/medical-records/:id', (req, res) => {
 });
 
 app.get('/api/patients', (req, res) => {
-  const sql = "SELECT id, name, email, contactNumber FROM users WHERE role = 'patient'";
+  const sql = "SELECT id, name, email, contactNumber, idNumber, role, doctorId FROM users WHERE role = 'patient'"; // ← Added idNumber
   db.query(sql, (err, results) => {
     if (err) {
       console.error('DB error fetching patients:', err);
@@ -1145,7 +1145,7 @@ app.delete('/api/wards/:id', (req, res) => {
 // GET all users (with optional role filter)
 app.get('/api/users', (req, res) => {
   const { role } = req.query;
-  let sql = 'SELECT id, name, email, role, contactNumber FROM users';
+  let sql = 'SELECT id, name, email, role, contactNumber, idNumber, doctorId FROM users'; // ← Added idNumber
   const params = [];
   
   if (role) {
