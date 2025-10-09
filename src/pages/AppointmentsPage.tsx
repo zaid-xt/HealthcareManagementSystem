@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, Clock, User, FileText, CheckCircle, MapPin, Stethoscope, Edit, Trash2, MoreVertical, XCircle, CheckCircle2 } from 'lucide-react';
+import { Calendar, Plus, Calendar as CalendarIcon, Clock, User, FileText, CheckCircle, MapPin, Stethoscope, Edit, Trash2, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
@@ -16,7 +16,6 @@ const AppointmentsPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showActionsMenu, setShowActionsMenu] = useState<string | null>(null);
 
   useEffect(() => {
     loadAppointments();
@@ -80,7 +79,6 @@ const AppointmentsPage: React.FC = () => {
       try {
         await deleteAppointment(appointmentId);
         setAppointments(prev => prev.filter(appt => appt.id !== appointmentId));
-        setShowActionsMenu(null);
         
         setSuccessMessage('Appointment deleted successfully');
         setShowSuccess(true);
@@ -94,7 +92,6 @@ const AppointmentsPage: React.FC = () => {
 
   const handleEditAppointment = (appointmentId: string) => {
     navigate(`/appointments/edit/${appointmentId}`);
-    setShowActionsMenu(null);
   };
 
   const handleStatusUpdate = async (appointmentId: string, newStatus: 'completed' | 'cancelled' | 'scheduled') => {
@@ -122,8 +119,6 @@ const AppointmentsPage: React.FC = () => {
         )
       );
       
-      setShowActionsMenu(null);
-      
       const statusMessage = newStatus === 'completed' 
         ? 'Appointment marked as completed' 
         : newStatus === 'cancelled'
@@ -140,25 +135,26 @@ const AppointmentsPage: React.FC = () => {
   };
 
   const canModifyAppointment = (appointment: Appointment) => {
-  const isAdmin = user?.role === 'admin';
-  const isPatientOwner = user?.role === 'patient' && String(appointment.patientId) === String(user.id);
-  const isDoctorOwner = user?.role === 'doctor' && String(appointment.doctorId) === String(user.id);
-  
-  const result = isAdmin || isPatientOwner || isDoctorOwner;
-  
-  console.log(`🔐 canModifyAppointment for appointment ${appointment.id}:`, {
-    userRole: user?.role,
-    userId: user?.id,
-    appointmentPatientId: appointment.patientId,
-    appointmentDoctorId: appointment.doctorId,
-    isAdmin: isAdmin,
-    isPatientOwner: isPatientOwner,
-    isDoctorOwner: isDoctorOwner,
-    finalResult: result
-  });
-  
-  return result;
-};
+    const isAdmin = user?.role === 'admin';
+    const isPatientOwner = user?.role === 'patient' && String(appointment.patientId) === String(user.id);
+    const isDoctorOwner = user?.role === 'doctor' && String(appointment.doctorId) === String(user.id);
+    
+    const result = isAdmin || isPatientOwner || isDoctorOwner;
+    
+    console.log(`🔐 canModifyAppointment for appointment ${appointment.id}:`, {
+      userRole: user?.role,
+      userId: user?.id,
+      appointmentPatientId: appointment.patientId,
+      appointmentDoctorId: appointment.doctorId,
+      isAdmin: isAdmin,
+      isPatientOwner: isPatientOwner,
+      isDoctorOwner: isDoctorOwner,
+      finalResult: result
+    });
+    
+    return result;
+  };
+
   const getStatusColor = (status: Appointment['status']) => {
     switch (status) {
       case 'scheduled':
@@ -183,7 +179,7 @@ const AppointmentsPage: React.FC = () => {
       case 'cancelled':
         return <FileText className="h-3 w-3" />;
       default:
-        return <Calendar className="h-3 w-3" />;
+        return <CalendarIcon className="h-3 w-3" />;
     }
   };
 
@@ -237,23 +233,21 @@ const AppointmentsPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex justify-between items-center">
-                <div>
-                  <h1 className="text-2xl font-semibold text-gray-900">Appointments</h1>
-                  <p className="text-gray-600 mt-1">
-                    {user?.role === 'patient' 
-                      ? 'Your upcoming and past appointments'
-                      : user?.role === 'doctor'
-                      ? 'Your patient appointments'
-                      : 'All appointments management'
-                    }
-                  </p>
-                  {/* Show doctor info if logged in as doctor */}
-                  {user?.role === 'doctor' && (
-                    <p className="text-sm text-blue-600 mt-1">
-                      Use the menu (⋯) to manage appointment status, edit details, or delete
+              {/* Updated Header Section - Matching MedicalRecordsPage style */}
+              <div className="flex justify-between items-center mb-8">
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-8 w-8 text-blue-600" />
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Appointments</h1>
+                    <p className="text-gray-600 mt-1">
+                      {user?.role === 'patient' 
+                        ? 'Your upcoming and past appointments'
+                        : user?.role === 'doctor'
+                        ? 'Your patient appointments'
+                        : 'All appointments management'
+                      }
                     </p>
-                  )}
+                  </div>
                 </div>
                 {user?.role === 'patient' && (
                   <Button
@@ -265,6 +259,15 @@ const AppointmentsPage: React.FC = () => {
                   </Button>
                 )}
               </div>
+              
+              {/* Show doctor info if logged in as doctor */}
+              {user?.role === 'doctor' && (
+                <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-700">
+                    You are logged in as Dr. {user.name}. Here you can manage your patient appointments.
+                  </p>
+                </div>
+              )}
               
               {/* Stats Cards */}
               <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -310,6 +313,7 @@ const AppointmentsPage: React.FC = () => {
                     <ul className="divide-y divide-gray-200">
                       {sortedAppointments.map(appointment => {
                         const canModify = canModifyAppointment(appointment);
+                        const isDoctorOwner = user?.role === 'doctor' && String(appointment.doctorId) === String(user.id);
                         
                         return (
                           <li key={appointment.id} className="hover:bg-gray-50 transition-colors">
@@ -365,7 +369,7 @@ const AppointmentsPage: React.FC = () => {
                                 <div className="flex items-start space-x-4 flex-shrink-0">
                                   <div className="text-right">
                                     <div className="text-sm font-medium text-gray-900 flex items-center justify-end">
-                                      <Calendar className="h-4 w-4 mr-1" />
+                                      <CalendarIcon className="h-4 w-4 mr-1" />
                                       {formatDate(appointment.date)}
                                     </div>
                                     <div className="text-sm text-gray-600 mt-1 flex items-center justify-end">
@@ -377,80 +381,78 @@ const AppointmentsPage: React.FC = () => {
                                     </div>
                                   </div>
                                   
-                                  {/* Actions Menu */}
+                                  {/* Action Buttons */}
                                   {canModify && (
-  <div className="relative">
-    <button
-      onClick={() => setShowActionsMenu(
-        showActionsMenu === appointment.id ? null : appointment.id
-      )}
-      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-300"
-    >
-      <MoreVertical className="h-4 w-4" />
-    </button>
-    
-    {showActionsMenu === appointment.id && (
-      <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-40">
-        {/* Status update options for doctors */}
-        {(user?.role === 'doctor' && String(appointment.doctorId) === String(user.id)) && (
-          <>
-            {appointment.status === 'scheduled' && (
-              <>
-                <button
-                  onClick={() => handleStatusUpdate(appointment.id, 'completed')}
-                  className="flex items-center w-full px-4 py-2 text-sm text-green-700 hover:bg-green-50 transition-colors"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Mark as Completed
-                </button>
-                <button
-                  onClick={() => handleStatusUpdate(appointment.id, 'cancelled')}
-                  className="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors"
-                >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Cancel Appointment
-                </button>
-              </>
-            )}
-            {(appointment.status === 'completed' || appointment.status === 'cancelled') && (
-              <button
-                onClick={() => handleStatusUpdate(appointment.id, 'scheduled')}
-                className="flex items-center w-full px-4 py-2 text-sm text-blue-700 hover:bg-blue-50 transition-colors"
-              >
-                <Clock className="h-4 w-4 mr-2" />
-                Reopen Appointment
-              </button>
-            )}
-            <div className="border-t border-gray-200 my-1"></div>
-          </>
-        )}
-        
-        {/* Edit and Delete options - for both patients and doctors */}
-        <button
-          onClick={() => handleEditAppointment(appointment.id)}
-          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit Details
-        </button>
-        <button
-          onClick={() => handleDeleteAppointment(appointment.id)}
-          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Delete
-        </button>
-      </div>
-    )}
-  </div>
-)}
-</div>
-</div>
-</div>
-</li>
-);
-})}
-</ul>
+                                    <div className="flex flex-col space-y-2">
+                                      {/* Status update buttons for doctors */}
+                                      {isDoctorOwner && (
+                                        <>
+                                          {appointment.status === 'scheduled' && (
+                                            <>
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                leftIcon={<CheckCircle2 className="h-3 w-3" />}
+                                                onClick={() => handleStatusUpdate(appointment.id, 'completed')}
+                                                className="text-green-600 border-gray-200 hover:bg-green-50"
+                                              >
+                                                Complete
+                                              </Button>
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                leftIcon={<XCircle className="h-3 w-3" />}
+                                                onClick={() => handleStatusUpdate(appointment.id, 'cancelled')}
+                                                className="text-red-600 border-gray-200 hover:bg-red-50"
+                                              >
+                                                Cancel
+                                              </Button>
+                                            </>
+                                          )}
+                                          {(appointment.status === 'completed' || appointment.status === 'cancelled') && (
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              leftIcon={<RotateCcw className="h-3 w-3" />}
+                                              onClick={() => handleStatusUpdate(appointment.id, 'scheduled')}
+                                              className="text-blue-600 border-gray-200 hover:bg-blue-50"
+                                            >
+                                              Reopen
+                                            </Button>
+                                          )}
+                                        </>
+                                      )}
+                                      
+                                      {/* Edit and Delete buttons for all authorized users */}
+                                      <div className="flex space-x-2">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          leftIcon={<Edit className="h-3 w-3" />}
+                                          onClick={() => handleEditAppointment(appointment.id)}
+                                          className="text-gray-600 border-gray-200 hover:bg-gray-50"
+                                        >
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          leftIcon={<Trash2 className="h-3 w-3" />}
+                                          onClick={() => handleDeleteAppointment(appointment.id)}
+                                          className="text-red-600 border-gray-200 hover:bg-red-50"
+                                        >
+                                          Delete
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
                 ) : (
                   <div className="text-center py-12">
