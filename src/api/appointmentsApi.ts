@@ -47,6 +47,8 @@ export const createAppointment = async (appointment: Partial<Appointment>): Prom
 };
 
 export const updateAppointment = async (id: string, appointment: Partial<Appointment>): Promise<Appointment> => {
+  console.log('🔄 Updating appointment:', { id, appointment });
+  
   const response = await fetch(`${API_BASE_URL}/appointments/${id}`, {
     method: 'PUT',
     headers: {
@@ -56,8 +58,15 @@ export const updateAppointment = async (id: string, appointment: Partial<Appoint
   });
   
   if (!response.ok) {
-    throw new Error('Failed to update appointment');
+    const errorText = await response.text();
+    console.error('❌ Update failed:', {
+      status: response.status,
+      statusText: response.statusText,
+      error: errorText
+    });
+    throw new Error(`Failed to update appointment: ${response.status} ${response.statusText}`);
   }
+  
   return response.json();
 };
 
@@ -70,3 +79,4 @@ export const deleteAppointment = async (id: string): Promise<void> => {
     throw new Error('Failed to delete appointment');
   }
 };
+

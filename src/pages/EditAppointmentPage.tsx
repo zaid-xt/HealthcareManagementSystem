@@ -52,7 +52,6 @@ const EditAppointmentPage: React.FC = () => {
     }
   };
 
-
   if (!appointment) {
     return (
       <div className="min-h-screen bg-gray-50">

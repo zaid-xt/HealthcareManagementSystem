@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, Clock, User, FileText, CheckCircle, MapPin, Stethoscope, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { Plus, Calendar, Clock, User, FileText, CheckCircle, MapPin, Stethoscope, Edit, Trash2, MoreVertical, XCircle, CheckCircle2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
-import { fetchAppointments, deleteAppointment } from '../api/appointmentsApi';
+import { fetchAppointments, deleteAppointment, updateAppointment } from '../api/appointmentsApi';
 import type { Appointment } from '../types';
 
 const AppointmentsPage: React.FC = () => {
@@ -35,6 +35,17 @@ const AppointmentsPage: React.FC = () => {
     }
   }, [location.state]);
 
+  // Add this debug effect
+  useEffect(() => {
+    console.log('🔍 DEBUG - User and Appointments:', {
+      currentUser: user,
+      allAppointments: appointments,
+      userRole: user?.role,
+      userId: user?.id,
+      isDoctor: user?.role === 'doctor'
+    });
+  }, [user, appointments]);
+
   const loadAppointments = async () => {
     try {
       setIsLoading(true);
@@ -42,12 +53,19 @@ const AppointmentsPage: React.FC = () => {
       
       if (user?.role === 'patient') {
         filters.patientId = user.id;
+        console.log(`👤 Loading appointments for patient: ${user.id}`);
       } else if (user?.role === 'doctor') {
         filters.doctorId = user.id;
+        console.log(`👨‍⚕️ Loading appointments for doctor: ${user.id}`);
       }
       // Admin sees all appointments (no filter)
+      else if (user?.role === 'admin') {
+        console.log(`👑 Admin loading all appointments`);
+      }
       
+      console.log('🔍 Fetching appointments with filters:', filters);
       const data = await fetchAppointments(filters);
+      console.log('📅 Received appointments:', data);
       setAppointments(data);
     } catch (error) {
       console.error('Error loading appointments:', error);
@@ -79,13 +97,68 @@ const AppointmentsPage: React.FC = () => {
     setShowActionsMenu(null);
   };
 
-  const canModifyAppointment = (appointment: Appointment) => {
-    if (user?.role === 'admin') return true;
-    if (user?.role === 'patient' && appointment.patientId === user.id) return true;
-    if (user?.role === 'doctor' && appointment.doctorId === user.id) return true;
-    return false;
+  const handleStatusUpdate = async (appointmentId: string, newStatus: 'completed' | 'cancelled' | 'scheduled') => {
+    try {
+      const appointment = appointments.find(apt => apt.id === appointmentId);
+      if (!appointment) return;
+
+      console.log(`🔄 Updating appointment ${appointmentId} to ${newStatus}`, {
+        currentDoctorId: user?.id,
+        appointmentDoctorId: appointment.doctorId
+      });
+
+      const updatedAppointment = {
+        ...appointment,
+        status: newStatus,
+        updatedAt: new Date().toISOString()
+      };
+
+      await updateAppointment(appointmentId, updatedAppointment);
+      
+      // Update local state
+      setAppointments(prev => 
+        prev.map(apt => 
+          apt.id === appointmentId ? { ...apt, status: newStatus } : apt
+        )
+      );
+      
+      setShowActionsMenu(null);
+      
+      const statusMessage = newStatus === 'completed' 
+        ? 'Appointment marked as completed' 
+        : newStatus === 'cancelled'
+        ? 'Appointment cancelled'
+        : 'Appointment reopened';
+      
+      setSuccessMessage(statusMessage);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 5000);
+    } catch (error) {
+      console.error('Error updating appointment status:', error);
+      alert('Failed to update appointment status');
+    }
   };
 
+  const canModifyAppointment = (appointment: Appointment) => {
+  const isAdmin = user?.role === 'admin';
+  const isPatientOwner = user?.role === 'patient' && String(appointment.patientId) === String(user.id);
+  const isDoctorOwner = user?.role === 'doctor' && String(appointment.doctorId) === String(user.id);
+  
+  const result = isAdmin || isPatientOwner || isDoctorOwner;
+  
+  console.log(`🔐 canModifyAppointment for appointment ${appointment.id}:`, {
+    userRole: user?.role,
+    userId: user?.id,
+    appointmentPatientId: appointment.patientId,
+    appointmentDoctorId: appointment.doctorId,
+    isAdmin: isAdmin,
+    isPatientOwner: isPatientOwner,
+    isDoctorOwner: isDoctorOwner,
+    finalResult: result
+  });
+  
+  return result;
+};
   const getStatusColor = (status: Appointment['status']) => {
     switch (status) {
       case 'scheduled':
@@ -157,7 +230,7 @@ const AppointmentsPage: React.FC = () => {
                     <p className="text-green-600 text-sm mt-1">
                       {successMessage.includes('deleted') 
                         ? 'The appointment has been removed from your schedule.'
-                        : 'Your appointment has been scheduled successfully.'
+                        : 'The appointment status has been updated.'
                       }
                     </p>
                   </div>
@@ -175,6 +248,12 @@ const AppointmentsPage: React.FC = () => {
                       : 'All appointments management'
                     }
                   </p>
+                  {/* Show doctor info if logged in as doctor */}
+                  {user?.role === 'doctor' && (
+                    <p className="text-sm text-blue-600 mt-1">
+                      Use the menu (⋯) to manage appointment status, edit details, or delete
+                    </p>
+                  )}
                 </div>
                 {user?.role === 'patient' && (
                   <Button
@@ -220,7 +299,12 @@ const AppointmentsPage: React.FC = () => {
                   <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-200">
                       <h2 className="text-lg font-semibold text-gray-900">
-                        {user?.role === 'patient' ? 'Your Appointments' : 'All Appointments'}
+                        {user?.role === 'patient' 
+                          ? 'Your Appointments' 
+                          : user?.role === 'doctor'
+                          ? 'Your Patient Appointments'
+                          : 'All Appointments'
+                        }
                       </h2>
                     </div>
                     <ul className="divide-y divide-gray-200">
@@ -254,7 +338,10 @@ const AppointmentsPage: React.FC = () => {
                                     </div>
                                     <p className="text-sm text-gray-600 mt-1 flex items-center">
                                       <Stethoscope className="h-4 w-4 mr-1" />
-                                      General Practitioner
+                                      {user?.role === 'patient' 
+                                        ? appointment.doctorName || 'General Practitioner'
+                                        : `Patient Appointment`
+                                      }
                                     </p>
                                     <p className="text-sm text-gray-500 mt-1 flex items-center">
                                       <MapPin className="h-4 w-4 mr-1" />
@@ -292,43 +379,78 @@ const AppointmentsPage: React.FC = () => {
                                   
                                   {/* Actions Menu */}
                                   {canModify && (
-                                    <div className="relative">
-                                      <button
-                                        onClick={() => setShowActionsMenu(
-                                          showActionsMenu === appointment.id ? null : appointment.id
-                                        )}
-                                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                      >
-                                        <MoreVertical className="h-4 w-4" />
-                                      </button>
-                                      
-                                      {showActionsMenu === appointment.id && (
-                                        <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-32">
-                                          <button
-                                            onClick={() => handleEditAppointment(appointment.id)}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                                          >
-                                            <Edit className="h-4 w-4 mr-2" />
-                                            Edit
-                                          </button>
-                                          <button
-                                            onClick={() => handleDeleteAppointment(appointment.id)}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                          >
-                                            <Trash2 className="h-4 w-4 mr-2" />
-                                            Delete
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
+  <div className="relative">
+    <button
+      onClick={() => setShowActionsMenu(
+        showActionsMenu === appointment.id ? null : appointment.id
+      )}
+      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-300"
+    >
+      <MoreVertical className="h-4 w-4" />
+    </button>
+    
+    {showActionsMenu === appointment.id && (
+      <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-40">
+        {/* Status update options for doctors */}
+        {(user?.role === 'doctor' && String(appointment.doctorId) === String(user.id)) && (
+          <>
+            {appointment.status === 'scheduled' && (
+              <>
+                <button
+                  onClick={() => handleStatusUpdate(appointment.id, 'completed')}
+                  className="flex items-center w-full px-4 py-2 text-sm text-green-700 hover:bg-green-50 transition-colors"
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Mark as Completed
+                </button>
+                <button
+                  onClick={() => handleStatusUpdate(appointment.id, 'cancelled')}
+                  className="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors"
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancel Appointment
+                </button>
+              </>
+            )}
+            {(appointment.status === 'completed' || appointment.status === 'cancelled') && (
+              <button
+                onClick={() => handleStatusUpdate(appointment.id, 'scheduled')}
+                className="flex items-center w-full px-4 py-2 text-sm text-blue-700 hover:bg-blue-50 transition-colors"
+              >
+                <Clock className="h-4 w-4 mr-2" />
+                Reopen Appointment
+              </button>
+            )}
+            <div className="border-t border-gray-200 my-1"></div>
+          </>
+        )}
+        
+        {/* Edit and Delete options - for both patients and doctors */}
+        <button
+          onClick={() => handleEditAppointment(appointment.id)}
+          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          <Edit className="h-4 w-4 mr-2" />
+          Edit Details
+        </button>
+        <button
+          onClick={() => handleDeleteAppointment(appointment.id)}
+          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete
+        </button>
+      </div>
+    )}
+  </div>
+)}
+</div>
+</div>
+</div>
+</li>
+);
+})}
+</ul>
                   </div>
                 ) : (
                   <div className="text-center py-12">
@@ -338,6 +460,8 @@ const AppointmentsPage: React.FC = () => {
                       <p className="text-gray-500 mb-6">
                         {user?.role === 'patient' 
                           ? 'You don\'t have any appointments scheduled yet.'
+                          : user?.role === 'doctor'
+                          ? 'You don\'t have any patient appointments scheduled yet.'
                           : 'No appointments scheduled yet.'
                         }
                       </p>

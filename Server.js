@@ -412,7 +412,6 @@ app.get('/api/appointments/:id', (req, res) => {
 });
 
 // POST create new appointment
-// POST create new appointment - with better error handling
 app.post('/api/appointments', (req, res) => {
   console.log('📥 Incoming appointment data:', req.body);
   
@@ -423,26 +422,32 @@ app.post('/api/appointments', (req, res) => {
     return res.status(400).json({ message: 'Missing required fields' });
   }
   
+  // Convert ISO date string to MySQL DATE format (YYYY-MM-DD)
+  const convertToMySQLDate = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0]; // Extract just the date part
+  };
+  
+  const mysqlDate = convertToMySQLDate(date);
+  
+  console.log('🔄 Date conversion:', { original: date, converted: mysqlDate });
+  
   const sql = `
     INSERT INTO appointments (id, patientId, doctorId, date, startTime, endTime, type, status, notes, createdBy)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   
   console.log('🚀 Executing SQL:', sql);
-  console.log('📋 With parameters:', [id, patientId, doctorId, date, startTime, endTime, type || 'regular', status || 'scheduled', notes || '', createdBy]);
+  console.log('📋 With parameters:', [id, patientId, doctorId, mysqlDate, startTime, endTime, type || 'regular', status || 'scheduled', notes || '', createdBy]);
   
   db.query(sql, [
-    id, patientId, doctorId, date, startTime, endTime, 
+    id, patientId, doctorId, mysqlDate, startTime, endTime, 
     type || 'regular', status || 'scheduled', notes || '', createdBy
   ], (err, results) => {
     if (err) {
       console.error('❌ Database error creating appointment:', err);
-      console.error('❌ SQL error code:', err.code);
-      console.error('❌ SQL error message:', err.sqlMessage);
-      return res.status(500).json({ 
-        message: 'Failed to create appointment',
-        error: err.message 
-      });
+      return res.status(500).json({ message: 'Failed to create appointment', error: err.message });
     }
     
     console.log('✅ Appointment created successfully, ID:', id);
@@ -474,9 +479,24 @@ app.put('/api/appointments/:id', (req, res) => {
   const { id } = req.params;
   const { patientId, doctorId, date, startTime, endTime, type, status, notes } = req.body;
   
+  console.log('📥 Update request for appointment:', id);
+  console.log('📋 Update data:', req.body);
+  
   if (!patientId || !doctorId || !date || !startTime || !endTime) {
+    console.log('❌ Missing required fields:', { patientId, doctorId, date, startTime, endTime });
     return res.status(400).json({ message: 'Missing required fields' });
   }
+  
+  // Convert ISO date string to MySQL DATE format (YYYY-MM-DD)
+  const convertToMySQLDate = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0]; // Extract just the date part
+  };
+  
+  const mysqlDate = convertToMySQLDate(date);
+  
+  console.log('🔄 Date conversion:', { original: date, converted: mysqlDate });
   
   const sql = `
     UPDATE appointments 
@@ -484,17 +504,23 @@ app.put('/api/appointments/:id', (req, res) => {
     WHERE id = ?
   `;
   
+  console.log('🚀 Executing SQL:', sql);
+  console.log('📋 With parameters:', [patientId, doctorId, mysqlDate, startTime, endTime, type, status, notes, id]);
+  
   db.query(sql, [
-    patientId, doctorId, date, startTime, endTime, type, status, notes, id
+    patientId, doctorId, mysqlDate, startTime, endTime, type, status, notes, id
   ], (err, results) => {
     if (err) {
-      console.error('DB error updating appointment:', err);
-      return res.status(500).json({ message: 'Failed to update appointment' });
+      console.error('❌ Database error updating appointment:', err);
+      return res.status(500).json({ message: 'Failed to update appointment', error: err.message });
     }
     
     if (results.affectedRows === 0) {
+      console.log('❌ No appointment found with ID:', id);
       return res.status(404).json({ message: 'Appointment not found' });
     }
+    
+    console.log('✅ Appointment updated successfully');
     
     // Fetch the updated appointment to return
     db.query(`
@@ -509,7 +535,7 @@ app.put('/api/appointments/:id', (req, res) => {
       WHERE a.id = ?
     `, [id], (err, appointmentResults) => {
       if (err) {
-        console.error('DB error fetching updated appointment:', err);
+        console.error('❌ DB error fetching updated appointment:', err);
         return res.status(500).json({ message: 'Appointment updated but failed to fetch details' });
       }
       res.json(appointmentResults[0]);
@@ -1320,7 +1346,6 @@ app.patch('/api/messages/:id/read', (req, res) => {
   });
 });
 
-// Start server only after DB is ready
 // Start server only after DB is ready
 (async () => {
   try {
