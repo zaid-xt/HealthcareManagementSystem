@@ -415,7 +415,7 @@ const PatientsPage: React.FC = () => {
                 </div>
               </div>
 
-              {canManagePatients && (
+              {/* {canManagePatients && (
                 <Button
                   onClick={() => setIsAddingPatient(true)}
                   leftIcon={<Plus className="h-4 w-4" />}
@@ -423,7 +423,7 @@ const PatientsPage: React.FC = () => {
                 >
                   Add New Patient
                 </Button>
-              )}
+              )} */}
             </div>
 
             {renderContent()}
