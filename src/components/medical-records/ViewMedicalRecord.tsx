@@ -69,7 +69,7 @@ const ViewMedicalRecord: React.FC<ViewMedicalRecordProps> = ({ record, onClose }
           </div>
           <div className="text-sm text-gray-600">
             <p>Name: {patient?.name || 'Unknown'}</p>
-            <p>Patient ID: {patient?.id || 'N/A'}</p>
+            <p>ID Number: {patient?.idNumber || 'N/A'}</p>
             <p>Contact Number: {patient?.contactNumber || 'N/A'}</p>
             <p>Email: {patient?.email || 'N/A'}</p>
           </div>
@@ -83,7 +83,7 @@ const ViewMedicalRecord: React.FC<ViewMedicalRecordProps> = ({ record, onClose }
           </div>
           <div className="text-sm text-gray-600">
             <p>Name: {doctor?.name || 'Unknown'}</p>
-            {/* <p>Doctor ID: {doctor?.doctorId || doctor?.id || 'N/A'}</p> */}
+            <p>Doctor ID: {doctor?.doctorId || 'N/A'}</p>
             <p>Contact Number: {doctor?.contactNumber || 'N/A'}</p>
             <p>Email: {doctor?.email || 'N/A'}</p>
           </div>
