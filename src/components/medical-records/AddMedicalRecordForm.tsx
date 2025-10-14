@@ -17,7 +17,7 @@ const AddMedicalRecordForm: React.FC<AddMedicalRecordFormProps> = ({
 }) => {
   const { user } = useAuth();
 
-  const [patients, setPatients] = useState<{id: string; name: string}[]>([]);
+  const [patients, setPatients] = useState<{id: string; name: string; idNumber: string}[]>([]);
   const [doctors, setDoctors] = useState<{id: string; firstName: string; lastName: string; specialization?: string}[]>([]);
 
   const [formData, setFormData] = useState({
@@ -95,7 +95,7 @@ const AddMedicalRecordForm: React.FC<AddMedicalRecordFormProps> = ({
               <option value="">Select a patient</option>
               {patients.map((patient) => (
                 <option key={patient.id} value={patient.id}>
-                  {patient.name} (ID: {patient.id})
+                  {patient.name} (ID Number: {patient.idNumber || 'N/A'})
                 </option>
               ))}
             </select>
