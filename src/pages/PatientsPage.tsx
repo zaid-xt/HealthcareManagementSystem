@@ -118,7 +118,7 @@ const PatientsPage: React.FC = () => {
   };
 
   const filteredPatients = patients.filter(patient => {
-    const searchString = `${patient.name} ${patient.email} ${patient.contactNumber}`.toLowerCase();
+    const searchString = `${patient.name} ${patient.email} ${patient.contactNumber} ${patient.idNumber}`.toLowerCase();
     const matchesSearch = searchString.includes(searchTerm.toLowerCase());
     
     // Note: These filters will work once you add the fields to your database
@@ -209,7 +209,7 @@ const PatientsPage: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="search"
-              placeholder="Search patients by name, email, or phone..."
+              placeholder="Search patients by name, email, phone, or ID number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
