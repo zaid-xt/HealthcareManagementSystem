@@ -65,29 +65,43 @@ const SignUpForm: React.FC = () => {
       isValid = false;
     }
 
-    if (role === 'doctor' && !doctorId) {
-      errors.doctorId = 'Doctor ID is required';
+    if (role === 'doctor') {
+      if (!doctorId) {
+        errors.doctorId = 'Doctor ID is required';
+        isValid = false;
+      } else if (!/^DOC[A-Za-z0-9]+$/.test(doctorId)) {
+        errors.doctorId = 'Doctor ID must start with DOC followed by numbers/letters';
+        isValid = false;
+      } else if (doctorId.length < 4) {
+        errors.doctorId = 'Doctor ID must be at least 4 characters';
+        isValid = false;
+      }
+    }
+
+    if (!idNumber) {
+      errors.idNumber = 'ID Number is required';
+      isValid = false;
+    } else if (!/^\d{13}$/.test(idNumber)) {  
+      errors.idNumber = 'ID Number must be exactly 13 digits';
       isValid = false;
     }
 
-     if (!idNumber) {
-    errors.idNumber = 'ID Number is required';
-    isValid = false;
-  } else if (!/^\d{13}$/.test(idNumber)) {  
-    errors.idNumber = 'ID Number must be exactly 13 digits';
-    isValid = false;
-  }
-
-  if (!contactNumber) {
-    errors.contactNumber = 'Contact Number is required';
-    isValid = false;
-  } else if (!/^\d{10}$/.test(contactNumber)) {  
-    errors.contactNumber = 'Contact Number must be exactly 10 digits';
-    isValid = false;
-  }
+    if (!contactNumber) {
+      errors.contactNumber = 'Contact Number is required';
+      isValid = false;
+    } else if (!/^\d{10}$/.test(contactNumber)) {  
+      errors.contactNumber = 'Contact Number must be exactly 10 digits';
+      isValid = false;
+    }
 
     setFormErrors(errors);
     return isValid;
+  };
+
+  const handleDoctorIdChange = (value: string) => {
+    // Convert to uppercase automatically
+    const upperValue = value.toUpperCase();
+    setDoctorId(upperValue);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -190,38 +204,37 @@ const SignUpForm: React.FC = () => {
             autoComplete="new-password"
           />
           
-        <Input
-          label="ID Number"
-          type="text"
-          id="idNumber"
-          value={idNumber}
-          onChange={(e) => {
-          const value = e.target.value.replace(/\D/g, '');
-          setIdNumber(value);
-        }}
-          error={formErrors.idNumber}
-          placeholder="13 digit number"
-          leftIcon={<BadgeCheck className="h-4 w-4" />}
-          fullWidth
-          maxLength={13}
-        />
+          <Input
+            label="ID Number"
+            type="text"
+            id="idNumber"
+            value={idNumber}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '');
+              setIdNumber(value);
+            }}
+            error={formErrors.idNumber}
+            placeholder="13 digit number"
+            leftIcon={<BadgeCheck className="h-4 w-4" />}
+            fullWidth
+            maxLength={13}
+          />
 
-      
-        <Input
-          label="Contact Number"
-          type="tel"
-          id="contactNumber"
-          value={contactNumber}
-          onChange={(e) => {
-          const value = e.target.value.replace(/\D/g, '');
-          setContactNumber(value);
-          }}
-          error={formErrors.contactNumber}
-          placeholder="10 digit number"
-          leftIcon={<Phone className="h-4 w-4" />}
-          fullWidth
-          maxLength={10} 
-        />
+          <Input
+            label="Contact Number"
+            type="tel"
+            id="contactNumber"
+            value={contactNumber}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '');
+              setContactNumber(value);
+            }}
+            error={formErrors.contactNumber}
+            placeholder="10 digit number"
+            leftIcon={<Phone className="h-4 w-4" />}
+            fullWidth
+            maxLength={10}
+          />
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium leading-none">Account Type</label>
@@ -259,10 +272,10 @@ const SignUpForm: React.FC = () => {
             <Input
               label="Doctor ID"
               value={doctorId}
-              onChange={(e) => setDoctorId(e.target.value)}
+              onChange={(e) => handleDoctorIdChange(e.target.value)}
               error={formErrors.doctorId}
-              placeholder="e.g., DOC001"
-              required
+              placeholder="DOC001, DOC123, etc."
+              fullWidth
             />
           )}
         </div>

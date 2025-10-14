@@ -81,9 +81,21 @@ const DashboardPage: React.FC = () => {
       }
 
       try {
-        // Fetch appointments
+        // Fetch appointments with role-based filtering
         setAppointmentsLoading(true);
-        const appointmentsData = await fetchAppointments();
+        let appointmentsData;
+        
+        if (user?.role === 'doctor') {
+          // Only fetch appointments for this specific doctor
+          appointmentsData = await fetchAppointments({ doctorId: user.id });
+        } else if (user?.role === 'patient') {
+          // Only fetch appointments for this specific patient
+          appointmentsData = await fetchAppointments({ patientId: user.id });
+        } else {
+          // Admin sees all appointments
+          appointmentsData = await fetchAppointments();
+        }
+        
         if (mounted) setAppointments(appointmentsData);
       } catch (e: any) {
         if (mounted) setAppointmentsError(e?.message || 'Failed to load appointments');
@@ -127,14 +139,24 @@ const DashboardPage: React.FC = () => {
     
     const interval = setInterval(async () => {
       try {
-        const [wardsData, patientsData, appointmentsData, medicalRecordsData] = await Promise.all([
+        const [wardsData, patientsData, medicalRecordsData] = await Promise.all([
           fetchWards(),
           fetchPatients(),
-          fetchAppointments(),
           user?.role === 'doctor' 
             ? fetch(`http://localhost:5000/api/medical-records/doctor/${user.id}`).then(res => res.json())
             : fetchMedicalRecords()
         ]);
+
+        // Fetch appointments with role-based filtering
+        let appointmentsData;
+        if (user?.role === 'doctor') {
+          appointmentsData = await fetchAppointments({ doctorId: user.id });
+        } else if (user?.role === 'patient') {
+          appointmentsData = await fetchAppointments({ patientId: user.id });
+        } else {
+          appointmentsData = await fetchAppointments();
+        }
+
         setWards(wardsData);
         setPatients(patientsData);
         setAppointments(appointmentsData);
@@ -158,7 +180,7 @@ const DashboardPage: React.FC = () => {
     })
     .slice(0, 5);
 
-  // Get today's appointments count
+  // Get today's appointments count - role specific
   const todaysAppointmentsCount = appointments.filter(appointment => {
     const appointmentDate = new Date(appointment.date).toISOString().split('T')[0];
     return appointmentDate === todayFormatted;
@@ -171,6 +193,28 @@ const DashboardPage: React.FC = () => {
 
   // Get pending lab results (still using mock data for now)
   const pendingLabs = labs.filter(lab => lab.status === 'pending').length;
+
+  // Get section title based on user role
+  const getAppointmentsTitle = () => {
+    if (user?.role === 'doctor') {
+      return 'Your Upcoming Appointments';
+    } else if (user?.role === 'patient') {
+      return 'Your Upcoming Appointments';
+    } else {
+      return 'Upcoming Appointments';
+    }
+  };
+
+  // Get empty state message based on user role
+  const getEmptyAppointmentsMessage = () => {
+    if (user?.role === 'doctor') {
+      return 'No upcoming appointments scheduled for you';
+    } else if (user?.role === 'patient') {
+      return 'No upcoming appointments scheduled for you';
+    } else {
+      return 'No upcoming appointments';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -226,7 +270,7 @@ const DashboardPage: React.FC = () => {
                 />
                 
                 <StatsCard 
-                  title="Today's Appointments"
+                  title={user?.role === 'doctor' ? "Today's Appointments" : "Today's Appointments"}
                   value={appointmentsLoading ? '...' : appointmentsError ? 'Error' : todaysAppointmentsCount}
                   icon={<Calendar className="h-5 w-5" />}
                   description={appointmentsLoading ? 'Loading...' : appointmentsError ? 'Failed to load' : 'Scheduled for today'}
@@ -255,7 +299,7 @@ const DashboardPage: React.FC = () => {
               {/* Upcoming Appointments */}
               <div className="mt-8">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-medium text-gray-900">Upcoming Appointments</h2>
+                  <h2 className="text-lg font-medium text-gray-900">{getAppointmentsTitle()}</h2>
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -302,7 +346,7 @@ const DashboardPage: React.FC = () => {
                                     </p>
                                     <p className="mt-1 text-xs text-gray-500 truncate">
                                       {appointment.type?.charAt(0).toUpperCase() + appointment.type?.slice(1) || 'Regular'} Appointment
-                                      {appointment.doctorName && ` with Dr. ${appointment.doctorName}`}
+                                      {user?.role === 'doctor' && ' - Your patient'}
                                     </p>
                                   </div>
                                 </div>
@@ -319,7 +363,7 @@ const DashboardPage: React.FC = () => {
                     ) : (
                       <li>
                         <div className="px-4 py-5 sm:px-6 text-center text-gray-500">
-                          No upcoming appointments
+                          {getEmptyAppointmentsMessage()}
                         </div>
                       </li>
                     )}
