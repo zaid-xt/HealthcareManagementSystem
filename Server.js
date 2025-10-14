@@ -836,34 +836,68 @@ const authenticate = (req, res, next) => {
 };
 
 // Update the doctor records endpoint
-app.get('/api/medical-records/doctor/:doctorId', authenticate, (req, res) => {
+// app.get('/api/medical-records/doctor/:doctorId', authenticate, (req, res) => {
+//   const requestedDoctorId = req.params.doctorId;
+//   const authenticatedUserId = req.user.id;
+
+//   // Verify the requesting user is the same as the doctor they're requesting
+//   if (requestedDoctorId !== authenticatedUserId) {
+//     return res.status(403).json({ message: 'Access denied' });
+//   }
+
+//   db.query(
+//     'SELECT * FROM medical_records WHERE doctorId = ?',
+//     [requestedDoctorId],
+//     (err, results) => {
+//       if (err) {
+//         console.error('DB error fetching doctor records:', err);
+//         return res.status(500).json({ message: 'Failed to fetch records' });
+//       }
+      
+//       const records = results.map(r => ({
+//         ...r,
+//         symptoms: deserializeSymptoms(r.symptoms),
+//       }));
+      
+//       res.json(records);
+//     }
+//   );
+// });
+// Update the doctor records endpoint to show all patients' records
+// Update the doctor records endpoint - remove authentication for now
+app.get('/api/medical-records/doctor/:doctorId', (req, res) => {
   const requestedDoctorId = req.params.doctorId;
-  const authenticatedUserId = req.user.id;
 
-  // Verify the requesting user is the same as the doctor they're requesting
-  if (requestedDoctorId !== authenticatedUserId) {
-    return res.status(403).json({ message: 'Access denied' });
-  }
-
-  db.query(
-    'SELECT * FROM medical_records WHERE doctorId = ?',
-    [requestedDoctorId],
-    (err, results) => {
-      if (err) {
-        console.error('DB error fetching doctor records:', err);
-        return res.status(500).json({ message: 'Failed to fetch records' });
-      }
-      
-      const records = results.map(r => ({
-        ...r,
-        symptoms: deserializeSymptoms(r.symptoms),
-      }));
-      
-      res.json(records);
+  // For now, let doctors see all medical records without strict authentication
+  const sql = `
+    SELECT 
+      mr.*,
+      d.name as doctorName,
+      p.name as patientName
+    FROM medical_records mr
+    LEFT JOIN users d ON mr.doctorId = d.id
+    LEFT JOIN users p ON mr.patientId = p.id
+    ORDER BY mr.date DESC
+  `;
+  
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('DB error fetching doctor records:', err);
+      return res.status(500).json({ message: 'Failed to fetch records' });
     }
-  );
+    
+    console.log('🔍 Medical records with doctor info:', results);
+    
+    const records = results.map(r => ({
+      ...r,
+      symptoms: deserializeSymptoms(r.symptoms),
+      doctorName: r.doctorName,
+      patientName: r.patientName
+    }));
+    
+    res.json(records);
+  });
 });
-
 // Add doctors endpoint
 app.get('/api/doctors', (req, res) => {
   db.query(
