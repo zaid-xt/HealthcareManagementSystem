@@ -152,15 +152,17 @@ const PatientsPage: React.FC = () => {
       );
     }
 
-    if (viewingPatient) {
-      return (
+   if (viewingPatient) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
         <ViewPatient
           patient={viewingPatient}
           onClose={() => setViewingPatient(null)}
           onAddMedicalRecord={() => setIsAddingMedicalRecord(true)}
         />
-      );
-    }
+      </div>
+    );
+  }
 
     if (isAddingMedicalRecord && viewingPatient) {
       return (
@@ -326,23 +328,6 @@ const PatientsPage: React.FC = () => {
                   >
                     View
                   </Button>
-                  {isDoctor && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      leftIcon={<FileText className="h-4 w-4" />}
-                      onClick={() => {
-                        setViewingPatient(patient);
-                        // Auto-switch to records tab when clicking Records button
-                        setTimeout(() => {
-                          const recordsTab = document.querySelector('[data-tab="records"]') as HTMLButtonElement;
-                          if (recordsTab) recordsTab.click();
-                        }, 100);
-                      }}
-                    >
-                      Records
-                    </Button>
-                  )}
                   {isAdmin && (
                     <>
                       <Button
