@@ -12,7 +12,9 @@ import {
   ChevronRight,
   MessageSquare,
   User,
-  LogOut
+  LogOut,
+  Home,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -30,15 +32,64 @@ const Sidebar: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const sidebarItems: SidebarItem[] = [
-    { title: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/dashboard' },
+    // Different home pages based on role
+    { 
+      title: 'Welcome', 
+      icon: <Home className="w-5 h-5" />, 
+      path: '/welcome', 
+      roles: ['patient'] 
+    },
+    { 
+      title: 'Dashboard', 
+      icon: <LayoutDashboard className="w-5 h-5" />, 
+      path: '/dashboard', 
+      roles: ['admin', 'doctor'] 
+    },
+    
+    // Common items for all roles
     { title: 'Appointments', icon: <Calendar className="w-5 h-5" />, path: '/appointments' },
     { title: 'Messages', icon: <MessageSquare className="w-5 h-5" />, path: '/messages' },
-    { title: 'Patients', icon: <Users className="w-5 h-5" />, path: '/patients', roles: ['admin', 'doctor'] },
-    { title: 'Doctors', icon: <Users className="w-5 h-5" />, path: '/admin/doctors', roles: ['admin'] },
-    { title: 'Wards', icon: <Building className="w-5 h-5" />, path: '/wards', roles: ['admin', 'doctor', 'nurse'] },
-    { title: 'Medical Records', icon: <FileText className="w-5 h-5" />, path: '/medical-records', roles: ['admin', 'doctor', 'nurse'] },
-    { title: 'Lab Results', icon: <Flask className="w-5 h-5" />, path: '/lab-results', roles: ['admin', 'doctor'] },
     { title: 'Prescriptions', icon: <Pill className="w-5 h-5" />, path: '/prescriptions' },
+    
+    // Medical Records - different pages for different roles
+    { 
+      title: 'My Medical Records', 
+      icon: <FileText className="w-5 h-5" />, 
+      path: '/my-medical-records', 
+      roles: ['patient'] 
+    },
+    { 
+      title: 'Medical Records', 
+      icon: <FileText className="w-5 h-5" />, 
+      path: '/medical-records', 
+      roles: ['admin', 'doctor', 'nurse'] 
+    },
+    
+    // Admin and Doctor specific items
+    { 
+      title: 'Patients', 
+      icon: <Users className="w-5 h-5" />, 
+      path: '/patients', 
+      roles: ['admin', 'doctor'] 
+    },
+    { 
+      title: 'Doctors', 
+      icon: <UserCheck className="w-5 h-5" />, 
+      path: '/admin/doctors', 
+      roles: ['admin'] 
+    },
+    { 
+      title: 'Wards', 
+      icon: <Building className="w-5 h-5" />, 
+      path: '/wards', 
+      roles: ['admin', 'doctor', 'nurse'] 
+    },
+    { 
+      title: 'Lab Results', 
+      icon: <Flask className="w-5 h-5" />, 
+      path: '/lab-results', 
+      roles: ['admin', 'doctor'] 
+    },
   ];
 
   const filteredItems = user

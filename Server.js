@@ -898,6 +898,36 @@ app.get('/api/medical-records/doctor/:doctorId', (req, res) => {
     res.json(records);
   });
 });
+
+// GET medical records for a specific patient
+app.get('/api/medical-records/patient/:patientId', (req, res) => {
+  const { patientId } = req.params;
+
+  const sql = `
+    SELECT 
+      mr.*,
+      d.name as doctorName
+    FROM medical_records mr
+    LEFT JOIN users d ON mr.doctorId = d.id
+    WHERE mr.patientId = ?
+    ORDER BY mr.date DESC
+  `;
+  
+  db.query(sql, [patientId], (err, results) => {
+    if (err) {
+      console.error('DB error fetching patient records:', err);
+      return res.status(500).json({ message: 'Failed to fetch records' });
+    }
+    
+    const records = results.map(r => ({
+      ...r,
+      symptoms: deserializeSymptoms(r.symptoms),
+    }));
+    
+    res.json(records);
+  });
+});
+
 // Add doctors endpoint
 app.get('/api/doctors', (req, res) => {
   db.query(
