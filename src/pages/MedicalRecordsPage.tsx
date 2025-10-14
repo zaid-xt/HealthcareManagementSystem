@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'; 
-import { FileText, Plus, Search, Filter, Edit2, Eye, X, Trash2 } from 'lucide-react';
+import { FileText, Plus, Search, Edit2, Eye, Trash2, RefreshCw } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
@@ -25,17 +25,10 @@ const MedicalRecordsPage: React.FC = () => {
   const [isAddingRecord, setIsAddingRecord] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<MedicalRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({
-    startDate: '',
-    endDate: '',
-    doctorId: '',
-    diagnosis: '',
-  });
 
   // Assuming patients and doctors come from API or global state
   // Here we fetch them from endpoints for this example
-  const [patients, setPatients] = useState<{ id: string; name: string }[]>([]);
+  const [patients, setPatients] = useState<{ id: string; name: string; idNumber: string }[]>([]);
   const [doctors, setDoctors] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
 
   useEffect(() => {
@@ -44,43 +37,44 @@ const MedicalRecordsPage: React.FC = () => {
     loadDoctors();
   }, []);
 
-const loadRecords = async () => {
-  try {
-    setIsLoading(true);
-    let data;
-    
-    if (user?.role === 'doctor') {
-      const res = await fetch(`http://localhost:5000/api/medical-records/doctor/${user.id}`, {
-        headers: {
-          'user-id': user.id // Temporary - use proper auth headers in production
-        }
-      });
-      if (!res.ok) throw new Error('Failed to fetch doctor records');
-      data = await res.json();
-    } else {
-      const res = await fetch('http://localhost:5000/api/medical-records');
-      if (!res.ok) throw new Error('Failed to fetch records');
-      data = await res.json();
+  const loadRecords = async () => {
+    try {
+      setIsLoading(true);
+      let data;
+      
+      if (user?.role === 'doctor') {
+        const res = await fetch(`http://localhost:5000/api/medical-records/doctor/${user.id}`, {
+          headers: {
+            'user-id': user.id // Temporary - use proper auth headers in production
+          }
+        });
+        if (!res.ok) throw new Error('Failed to fetch doctor records');
+        data = await res.json();
+      } else {
+        const res = await fetch('http://localhost:5000/api/medical-records');
+        if (!res.ok) throw new Error('Failed to fetch records');
+        data = await res.json();
+      }
+      
+      setMedicalRecords(data);
+    } catch (err: any) {
+      console.error('Error loading records:', err);
+      alert(err.message);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setMedicalRecords(data);
-  } catch (err: any) {
-    console.error('Error loading records:', err);
-    alert(err.message);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const loadPatients = async () => {
     try {
       const res = await fetch('http://localhost:5000/api/patients');
       if (!res.ok) throw new Error('Failed to load patients');
       const data = await res.json();
-      // Make sure id is string
+      // Make sure id is string and include idNumber
       const formatted = data.map((p: any) => ({
         ...p,
         id: String(p.id),
+        idNumber: p.idNumber || 'Not provided'
       }));
       setPatients(formatted);
     } catch (err) {
@@ -89,34 +83,34 @@ const loadRecords = async () => {
   };
 
   const loadDoctors = async () => {
-  try {
-    const res = await fetch('http://localhost:5000/api/doctors');
-    if (!res.ok) throw new Error('Failed to load doctors');
-    const data = await res.json();
-    const formatted = data.map((d: any) => ({
-      ...d,
-      id: String(d.id),
-    }));
-    setDoctors(formatted);
-  } catch (err) {
-    console.error('Error loading doctors:', err);
-    // Optional: set some state to show error in UI
-  }
-};
+    try {
+      const res = await fetch('http://localhost:5000/api/doctors');
+      if (!res.ok) throw new Error('Failed to load doctors');
+      const data = await res.json();
+      const formatted = data.map((d: any) => ({
+        ...d,
+        id: String(d.id),
+      }));
+      setDoctors(formatted);
+    } catch (err) {
+      console.error('Error loading doctors:', err);
+      // Optional: set some state to show error in UI
+    }
+  };
 
- const handleAddRecord = async (newRecord: MedicalRecord) => {
-  try {
-    const recordWithDoctor = {
-      ...newRecord,
-      doctorId: user?.id // Add current user's ID as doctorId
-    };
-    const savedRecord = await addMedicalRecord(recordWithDoctor);
-    setMedicalRecords((prev) => [...prev, savedRecord]);
-    setIsAddingRecord(false);
-  } catch (err: any) {
-    alert(err.message);
-  }
-};
+  const handleAddRecord = async (newRecord: MedicalRecord) => {
+    try {
+      const recordWithDoctor = {
+        ...newRecord,
+        doctorId: user?.id // Add current user's ID as doctorId
+      };
+      const savedRecord = await addMedicalRecord(recordWithDoctor);
+      setMedicalRecords((prev) => [...prev, savedRecord]);
+      setIsAddingRecord(false);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
 
   const handleSaveRecord = async (updatedRecord: MedicalRecord) => {
     try {
@@ -141,37 +135,14 @@ const loadRecords = async () => {
     }
   };
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const resetFilters = () => {
-    setFilters({
-      startDate: '',
-      endDate: '',
-      doctorId: '',
-      diagnosis: '',
-    });
-    setShowFilters(false);
-  };
-
   const filteredRecords = medicalRecords.filter((record) => {
     const patient = patients.find((p) => String(p.id) === String(record.patientId));
-    const searchString = `${patient?.name} ${record.diagnosis}`.toLowerCase();
-    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
+    
+    // Enhanced search: patient name, patient ID number, and diagnosis
+    const searchString = `${patient?.name || ''} ${patient?.idNumber || ''} ${record.diagnosis || ''}`.toLowerCase();
+    const matchesSearch = searchTerm === '' || searchString.includes(searchTerm.toLowerCase());
 
-    const matchesDateRange =
-      (!filters.startDate || record.date >= filters.startDate) &&
-      (!filters.endDate || record.date <= filters.endDate);
-
-    const matchesDoctor = !filters.doctorId || String(record.doctorId) === String(filters.doctorId);
-
-    const matchesDiagnosis =
-      !filters.diagnosis ||
-      record.diagnosis.toLowerCase().includes(filters.diagnosis.toLowerCase());
-
-    return matchesSearch && matchesDateRange && matchesDoctor && matchesDiagnosis;
+    return matchesSearch;
   });
 
   const renderContent = () => {
@@ -238,20 +209,20 @@ const loadRecords = async () => {
               return (
                 <tr key={record.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-  <div className="flex items-center">
-    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-      <span className="font-medium text-sm">
-        {patient?.name?.[0]}
-      </span>
-    </div>
-    <div className="ml-4">
-      <div className="text-sm font-medium text-gray-900">
-        {patient?.name || 'Unknown Patient'}
-      </div>
-      <div className="text-sm text-gray-500">Patient ID: {patient?.id || 'N/A'}</div>
-    </div>
-  </div>
-</td>
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                        <span className="font-medium text-sm">
+                          {patient?.name?.[0]}
+                        </span>
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {patient?.name || 'Unknown Patient'}
+                        </div>
+                        <div className="text-sm text-gray-500">ID: {patient?.idNumber || 'N/A'}</div>
+                      </div>
+                    </div>
+                  </td>
 
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {user && String(record.doctorId) === String(user.id)
@@ -333,7 +304,7 @@ const loadRecords = async () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
                   type="search"
-                  placeholder="Search records..."
+                  placeholder="Search by patient name, ID number, or diagnosis..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -341,72 +312,13 @@ const loadRecords = async () => {
               </div>
               <Button
                 variant="outline"
-                leftIcon={<Filter className="h-4 w-4" />}
-                onClick={() => setShowFilters(!showFilters)}
+                leftIcon={<RefreshCw className="h-4 w-4" />}
+                onClick={loadRecords}
+                disabled={isLoading}
               >
-                Filter
+                Refresh
               </Button>
             </div>
-
-            {showFilters && (
-              <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Filters</h3>
-                  <Button variant="ghost" size="sm" leftIcon={<X className="h-4 w-4" />} onClick={resetFilters}>
-                    Reset
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                    <input
-                      type="date"
-                      name="startDate"
-                      value={filters.startDate}
-                      onChange={handleFilterChange}
-                      className="w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                    <input
-                      type="date"
-                      name="endDate"
-                      value={filters.endDate}
-                      onChange={handleFilterChange}
-                      className="w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
-                    <select
-                      name="doctorId"
-                      value={filters.doctorId}
-                      onChange={handleFilterChange}
-                      className="w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">All Doctors</option>
-                      {doctors.map((doctor) => (
-                        <option key={doctor.id} value={doctor.id}>
-                          Dr. {doctor.firstName} {doctor.lastName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
-                    <input
-                      type="text"
-                      name="diagnosis"
-                      value={filters.diagnosis}
-                      onChange={handleFilterChange}
-                      placeholder="Filter by diagnosis..."
-                      className="w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div className="bg-white shadow-md rounded-lg overflow-hidden">{renderContent()}</div>
 
