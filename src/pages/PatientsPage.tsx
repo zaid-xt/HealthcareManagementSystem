@@ -283,9 +283,6 @@ const PatientsPage: React.FC = () => {
                     <div className="text-sm font-medium text-gray-900">
                       {patient.name}
                     </div>
-                    <div className="text-sm text-gray-500">
-                      ID: {patient.id}
-                    </div>
                   </div>
                 </div>
               </td>
