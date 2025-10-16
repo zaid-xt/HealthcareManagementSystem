@@ -60,7 +60,7 @@ const App: React.FC = () => {
           <Router>
             <Routes>
               {/* Public Routes */}
-              <Route path="/" element={<RootRedirect />} />
+              <Route path="/" element={<HomePage />} />
               <Route path="/signin" element={<SignInPage />} />
               <Route path="/signup" element={<SignUpPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />

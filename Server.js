@@ -579,7 +579,6 @@ app.delete('/api/appointments/:id', (req, res) => {
   await new Promise((resolve, reject) => {
     db.connect((err) => {
       if (err) return reject(err);
-      console.log("✅ Connected to MySQL and ensured database/tables exist");
       resolve();
     });
   });
