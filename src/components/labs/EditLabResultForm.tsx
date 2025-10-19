@@ -9,12 +9,14 @@ interface EditLabResultFormProps {
   labId: string;
   onSave: (updatedLab: Lab) => void;
   onCancel: () => void;
+  loading?: boolean;
 }
 
 const EditLabResultForm: React.FC<EditLabResultFormProps> = ({
   labId,
   onSave,
-  onCancel
+  onCancel,
+  loading = false
 }) => {
   const [lab, setLab] = useState<Lab | null>(null);
   const [formData, setFormData] = useState({
@@ -24,29 +26,45 @@ const EditLabResultForm: React.FC<EditLabResultFormProps> = ({
     status: 'pending' as Lab['status']
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
   const [loadingLab, setLoadingLab] = useState(true);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [autoSaving, setAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null);
 
+  // Validate labId on component mount
+  useEffect(() => {
+    if (!labId || labId === 'undefined') {
+      setErrors({ general: 'Invalid lab result ID' });
+      setLoadingLab(false);
+      return;
+    }
+  }, [labId]);
+
   // Load lab result data on component mount
   useEffect(() => {
     const loadLabResult = async () => {
+      if (!labId || labId === 'undefined') {
+        setLoadingLab(false);
+        return;
+      }
+
       try {
         setLoadingLab(true);
+        setErrors({});
         const labData = await fetchLabResult(labId);
         setLab(labData);
         setFormData({
           testType: labData.testType,
-          date: labData.date.split('T')[0], // Format date for input
+          date: labData.date.split('T')[0],
           results: labData.results || '',
           status: labData.status
         });
       } catch (error) {
         console.error('Failed to load lab result:', error);
-        setErrors({ general: 'Failed to load lab result. Please try again.' });
+        setErrors({ 
+          general: `Failed to load lab result: ${error instanceof Error ? error.message : 'Please try again.'}` 
+        });
       } finally {
         setLoadingLab(false);
       }
@@ -81,7 +99,6 @@ const EditLabResultForm: React.FC<EditLabResultFormProps> = ({
     newErrors.testType = validateField('testType', formData.testType);
     newErrors.date = validateField('date', formData.date);
     
-    // Remove empty error messages
     Object.keys(newErrors).forEach(key => {
       if (!newErrors[key]) delete newErrors[key];
     });
@@ -93,7 +110,6 @@ const EditLabResultForm: React.FC<EditLabResultFormProps> = ({
   const handleFieldChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // Real-time validation for touched fields
     if (touched[field]) {
       const fieldError = validateField(field, value);
       setErrors(prev => ({
@@ -112,16 +128,28 @@ const EditLabResultForm: React.FC<EditLabResultFormProps> = ({
     }));
   };
 
-  // Auto-save functionality
+  // Auto-save functionality - FIXED: Include all required fields
   const autoSave = async () => {
-    if (!lab || Object.keys(errors).length > 0) return;
+    if (!lab || Object.keys(errors).length > 0 || loading) return;
     
     try {
       setAutoSaving(true);
-      await updateLabResult(labId, formData);
+      
+      // Include all required fields from the original lab data
+      const autoSaveData = {
+        ...formData,
+        patientId: lab.patientId,
+        doctorId: lab.doctorId,
+        requestedBy: lab.requestedBy,
+        // Include date in proper format for API
+        date: new Date(formData.date).toISOString()
+      };
+      
+      await updateLabResult(labId, autoSaveData);
       setLastSaved(new Date());
     } catch (error) {
       console.error('Auto-save failed:', error);
+      // Don't show auto-save errors to the user as they're not critical
     } finally {
       setAutoSaving(false);
     }
@@ -129,25 +157,22 @@ const EditLabResultForm: React.FC<EditLabResultFormProps> = ({
 
   // Debounced auto-save effect
   useEffect(() => {
-    if (!lab || loadingLab) return;
+    if (!lab || loadingLab || loading) return;
     
-    // Clear existing timeout
     if (autoSaveTimeout) {
       clearTimeout(autoSaveTimeout);
     }
     
-    // Set new timeout for auto-save (3 seconds after last change)
     const timeout = setTimeout(() => {
       autoSave();
     }, 3000);
     
     setAutoSaveTimeout(timeout);
     
-    // Cleanup timeout on unmount
     return () => {
       if (timeout) clearTimeout(timeout);
     };
-  }, [formData, lab, loadingLab]);
+  }, [formData, lab, loadingLab, loading]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -161,23 +186,56 @@ const EditLabResultForm: React.FC<EditLabResultFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!labId || labId === 'undefined' || !lab) {
+      setErrors({ general: 'Invalid lab result ID' });
+      return;
+    }
+    
     if (!validateForm() || !lab) {
       return;
     }
     
-    setLoading(true);
     setErrors({});
     
     try {
-      const updatedLab = await updateLabResult(labId, formData);
+      // Include all required fields for the final submission
+      const submitData = {
+        ...formData,
+        patientId: lab.patientId,
+        doctorId: lab.doctorId,
+        requestedBy: lab.requestedBy,
+        // Include date in proper format for API
+        date: new Date(formData.date).toISOString()
+      };
+      
+      const updatedLab = await updateLabResult(labId, submitData);
       onSave(updatedLab);
     } catch (error) {
       console.error('Failed to update lab result:', error);
-      setErrors({ general: error instanceof Error ? error.message : 'Failed to update lab result. Please try again.' });
-    } finally {
-      setLoading(false);
+      setErrors({ 
+        general: error instanceof Error ? error.message : 'Failed to update lab result. Please try again.' 
+      });
     }
   };
+
+  // Show error if labId is invalid
+  if (!labId || labId === 'undefined') {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-md p-4">
+        <p className="text-sm text-red-600">
+          Invalid lab result ID. Cannot load lab result data.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="mt-2"
+        >
+          Go Back
+        </Button>
+      </div>
+    );
+  }
 
   if (loadingLab) {
     return (
@@ -190,10 +248,10 @@ const EditLabResultForm: React.FC<EditLabResultFormProps> = ({
     );
   }
 
-  if (!lab) {
+  if (!lab && errors.general) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-md p-4">
-        <p className="text-sm text-red-600">Failed to load lab result data.</p>
+        <p className="text-sm text-red-600">{errors.general}</p>
         <Button
           type="button"
           variant="outline"
@@ -262,7 +320,7 @@ const EditLabResultForm: React.FC<EditLabResultFormProps> = ({
           <textarea
             value={formData.results}
             onChange={(e) => setFormData(prev => ({ ...prev, results: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
             rows={4}
             placeholder="Enter test results..."
             disabled={loading}
@@ -276,7 +334,7 @@ const EditLabResultForm: React.FC<EditLabResultFormProps> = ({
           <select
             value={formData.status}
             onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as Lab['status'] }))}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
             required
             disabled={loading}
           >

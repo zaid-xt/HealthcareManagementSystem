@@ -149,11 +149,11 @@ const LabResultsPage: React.FC = () => {
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Lab Result</h2>
                 <EditLabResultForm
-                  lab={editingLab}
-                  onSave={handleUpdateLab}
-                  onCancel={() => setEditingLab(null)}
-                  loading={operationLoading}
-                />
+  labId={editingLab.id}  
+  onSave={handleUpdateLab}
+  onCancel={() => setEditingLab(null)}
+  loading={operationLoading}
+/>
               </div>
             ) : (
               <>
