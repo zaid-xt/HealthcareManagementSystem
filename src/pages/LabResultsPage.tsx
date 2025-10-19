@@ -5,6 +5,7 @@ import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
 import AddLabResultForm from '../components/labs/AddLabResultForm';
 import EditLabResultForm from '../components/labs/EditLabResultForm';
+import ViewLabResultForm from '../components/labs/ViewLabeResultForm';
 import { useAuth } from '../context/AuthContext';
 import { labResultsApi, type LabResultResponse } from '../api/labResultsApi';
 import type { Lab } from '../types';
@@ -13,6 +14,7 @@ const LabResultsPage: React.FC = () => {
   const { user } = useAuth();
   const [isAddingLab, setIsAddingLab] = useState(false);
   const [editingLab, setEditingLab] = useState<Lab | null>(null);
+  const [viewingLab, setViewingLab] = useState<Lab | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [labToDelete, setLabToDelete] = useState<LabResultResponse | null>(null);
   const [labs, setLabs] = useState<LabResultResponse[]>([]);
@@ -112,6 +114,13 @@ const LabResultsPage: React.FC = () => {
     }
   };
 
+  // Format ID number for display (add spaces for readability)
+  const formatIdNumber = (idNumber: string) => {
+    if (!idNumber) return 'N/A';
+    // Format as XXX XXX XXX XXXX (South African ID format)
+    return idNumber.replace(/(\d{3})(\d{3})(\d{3})(\d{4})/, '$1 $2 $3 $4');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -149,11 +158,18 @@ const LabResultsPage: React.FC = () => {
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Lab Result</h2>
                 <EditLabResultForm
-  labId={editingLab.id}  
-  onSave={handleUpdateLab}
-  onCancel={() => setEditingLab(null)}
-  loading={operationLoading}
-/>
+                  labId={editingLab.id}  
+                  onSave={handleUpdateLab}
+                  onCancel={() => setEditingLab(null)}
+                  loading={operationLoading}
+                />
+              </div>
+            ) : viewingLab ? (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <ViewLabResultForm
+                  lab={viewingLab}
+                  onClose={() => setViewingLab(null)}
+                />
               </div>
             ) : (
               <>
@@ -259,7 +275,7 @@ const LabResultsPage: React.FC = () => {
                                     {patientName}
                                   </div>
                                   <div className="text-sm text-gray-500">
-                                    ID: {lab.patientId}
+                                    ID: {lab.patientIdNumber ? formatIdNumber(lab.patientIdNumber) : `DB ID: ${lab.patientId}`}
                                   </div>
                                 </div>
                               </div>
@@ -285,7 +301,7 @@ const LabResultsPage: React.FC = () => {
                                 size="sm"
                                 className="mr-2"
                                 leftIcon={<Eye className="h-4 w-4" />}
-                                onClick={() => window.alert('View functionality would go here')}
+                                onClick={() => setViewingLab(lab)}
                               >
                                 View
                               </Button>
