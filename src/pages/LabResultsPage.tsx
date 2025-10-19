@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { FlaskRound as Flask, Plus, Search, Filter, Edit2, Eye, X, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FlaskRound as Flask, Plus, Search, Filter, Edit2, Eye, Trash2 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import Button from '../components/ui/Button';
 import AddLabResultForm from '../components/labs/AddLabResultForm';
 import EditLabResultForm from '../components/labs/EditLabResultForm';
 import { useAuth } from '../context/AuthContext';
-import { labs, patients, doctors } from '../utils/mockData';
+import { labResultsApi, type LabResultResponse } from '../api/labResultsApi';
 import type { Lab } from '../types';
 
 const LabResultsPage: React.FC = () => {
@@ -14,41 +14,88 @@ const LabResultsPage: React.FC = () => {
   const [isAddingLab, setIsAddingLab] = useState(false);
   const [editingLab, setEditingLab] = useState<Lab | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [labToDelete, setLabToDelete] = useState<Lab | null>(null);
+  const [labToDelete, setLabToDelete] = useState<LabResultResponse | null>(null);
+  const [labs, setLabs] = useState<LabResultResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [operationLoading, setOperationLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleAddLab = (newLab: Partial<Lab>) => {
-    // In a real app, this would make an API call
-    const lab: Lab = {
-      id: `lab${Date.now()}`,
-      ...newLab as Lab
-    };
-    labs.push(lab);
-    setIsAddingLab(false);
-  };
+  // Load lab results on component mount
+  useEffect(() => {
+    loadLabResults();
+  }, []);
 
-  const handleUpdateLab = (updatedLab: Lab) => {
-    // In a real app, this would make an API call
-    const labIndex = labs.findIndex(l => l.id === updatedLab.id);
-    if (labIndex !== -1) {
-      labs[labIndex] = updatedLab;
+  // Auto-clear success messages after 3 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(null), 3000);
+      return () => clearTimeout(timer);
     }
-    setEditingLab(null);
+  }, [successMessage]);
+
+  const loadLabResults = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const results = await labResultsApi.getAll();
+      setLabs(results);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load lab results');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeleteLab = () => {
+  const handleAddLab = async (newLab: Partial<Lab>) => {
+    try {
+      setOperationLoading(true);
+      setError(null);
+      const createdLab = await labResultsApi.create(newLab);
+      setLabs(prev => [...prev, createdLab]);
+      setIsAddingLab(false);
+      setSuccessMessage('Lab result created successfully');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create lab result');
+    } finally {
+      setOperationLoading(false);
+    }
+  };
+
+  const handleUpdateLab = async (updatedLab: Lab) => {
+    try {
+      setOperationLoading(true);
+      setError(null);
+      const updated = await labResultsApi.update(updatedLab.id, updatedLab);
+      setLabs(prev => prev.map(lab => lab.id === updatedLab.id ? updated : lab));
+      setEditingLab(null);
+      setSuccessMessage('Lab result updated successfully');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update lab result');
+    } finally {
+      setOperationLoading(false);
+    }
+  };
+
+  const handleDeleteLab = async () => {
     if (!labToDelete) return;
     
-    // In a real app, this would make an API call
-    const labIndex = labs.findIndex(l => l.id === labToDelete.id);
-    if (labIndex !== -1) {
-      labs.splice(labIndex, 1);
+    try {
+      setOperationLoading(true);
+      setError(null);
+      await labResultsApi.delete(labToDelete.id);
+      setLabs(prev => prev.filter(lab => lab.id !== labToDelete.id));
+      setLabToDelete(null);
+      setSuccessMessage('Lab result deleted successfully');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete lab result');
+    } finally {
+      setOperationLoading(false);
     }
-    setLabToDelete(null);
   };
 
   const filteredLabs = labs.filter(lab => {
-    const patient = patients.find(p => p.id === lab.patientId);
-    const searchString = `${patient?.firstName} ${patient?.lastName} ${lab.testType}`.toLowerCase();
+    const searchString = `${lab.patientName || ''} ${lab.testType}`.toLowerCase();
     return searchString.includes(searchTerm.toLowerCase());
   });
 
@@ -95,6 +142,7 @@ const LabResultsPage: React.FC = () => {
                 <AddLabResultForm
                   onSave={handleAddLab}
                   onCancel={() => setIsAddingLab(false)}
+                  loading={operationLoading}
                 />
               </div>
             ) : editingLab ? (
@@ -104,10 +152,39 @@ const LabResultsPage: React.FC = () => {
                   lab={editingLab}
                   onSave={handleUpdateLab}
                   onCancel={() => setEditingLab(null)}
+                  loading={operationLoading}
                 />
               </div>
             ) : (
               <>
+                {/* Success Message */}
+                {successMessage && (
+                  <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex">
+                      <div className="text-green-800">
+                        {successMessage}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Error Message */}
+                {error && (
+                  <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex">
+                      <div className="text-red-800">
+                        {error}
+                      </div>
+                      <button
+                        onClick={() => setError(null)}
+                        className="ml-auto text-red-600 hover:text-red-800"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="mb-6 flex flex-col sm:flex-row gap-4">
                   <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -128,30 +205,45 @@ const LabResultsPage: React.FC = () => {
                 </div>
 
                 <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Patient
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Test Details
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Doctor
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                  {loading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <span className="ml-3 text-gray-600">Loading lab results...</span>
+                    </div>
+                  ) : filteredLabs.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Flask className="mx-auto h-12 w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">No lab results</h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {searchTerm ? 'No results match your search.' : 'Get started by creating a new lab test.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Patient
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Test Details
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Doctor
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
                       {filteredLabs.map((lab) => {
-                        const patient = patients.find(p => p.id === lab.patientId);
-                        const doctor = doctors.find(d => d.id === lab.doctorId);
+                        const patientName = lab.patientName || 'Unknown Patient';
+                        const doctorName = lab.doctorName || 'Unknown Doctor';
+                        const patientInitials = patientName.split(' ').map(n => n[0]).join('').toUpperCase();
                         
                         return (
                           <tr key={lab.id} className="hover:bg-gray-50">
@@ -159,15 +251,15 @@ const LabResultsPage: React.FC = () => {
                               <div className="flex items-center">
                                 <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                                   <span className="font-medium text-sm">
-                                    {patient?.firstName[0]}{patient?.lastName[0]}
+                                    {patientInitials}
                                   </span>
                                 </div>
                                 <div className="ml-4">
                                   <div className="text-sm font-medium text-gray-900">
-                                    {patient?.firstName} {patient?.lastName}
+                                    {patientName}
                                   </div>
                                   <div className="text-sm text-gray-500">
-                                    ID: {patient?.id}
+                                    ID: {lab.patientId}
                                   </div>
                                 </div>
                               </div>
@@ -179,8 +271,8 @@ const LabResultsPage: React.FC = () => {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">Dr. {doctor?.firstName} {doctor?.lastName}</div>
-                              <div className="text-sm text-gray-500">{doctor?.specialization}</div>
+                              <div className="text-sm text-gray-900">Dr. {doctorName}</div>
+                              <div className="text-sm text-gray-500">Doctor</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(lab.status)}`}>
@@ -223,8 +315,9 @@ const LabResultsPage: React.FC = () => {
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </>
             )}
@@ -237,20 +330,22 @@ const LabResultsPage: React.FC = () => {
                     Delete Lab Result
                   </h3>
                   <p className="text-gray-500 mb-6">
-                    Are you sure you want to delete this lab result? This action cannot be undone.
+                    Are you sure you want to delete this lab result for {labToDelete.patientName || 'this patient'}? This action cannot be undone.
                   </p>
                   <div className="flex justify-end space-x-4">
                     <Button
                       variant="outline"
                       onClick={() => setLabToDelete(null)}
+                      disabled={operationLoading}
                     >
                       Cancel
                     </Button>
                     <Button
                       variant="danger"
                       onClick={handleDeleteLab}
+                      disabled={operationLoading}
                     >
-                      Delete
+                      {operationLoading ? 'Deleting...' : 'Delete'}
                     </Button>
                   </div>
                 </div>
