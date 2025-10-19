@@ -270,7 +270,7 @@ const SignUpForm: React.FC = () => {
           
           {role === 'doctor' && (
             <Input
-              label="Doctor ID"
+              label="HPC Registration Number"
               value={doctorId}
               onChange={(e) => handleDoctorIdChange(e.target.value)}
               error={formErrors.doctorId}
