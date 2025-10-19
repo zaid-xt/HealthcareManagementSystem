@@ -129,6 +129,44 @@ async function populateInitialData(appConn) {
         `, [user.name, user.email, user.password, user.role, user.doctorId, user.idNumber, user.contactNumber]);
       }
     }
+
+    const [labResultCount] = await appConn.query('SELECT COUNT(*) as count FROM lab_results');
+    if (labResultCount[0].count === 0) {
+      const mockLabResults = [
+        {
+          patientId: 4, doctorId: 2, testType: 'Complete Blood Count (CBC)',
+          date: '2024-01-15 09:00:00', results: 'WBC: 7.2 K/uL, RBC: 4.5 M/uL, Hemoglobin: 14.2 g/dL, Hematocrit: 42.1%, Platelets: 285 K/uL',
+          status: 'completed', reportUrl: null, requestedBy: 2
+        },
+        {
+          patientId: 4, doctorId: 2, testType: 'Lipid Panel',
+          date: '2024-01-20 10:30:00', results: 'Total Cholesterol: 195 mg/dL, LDL: 120 mg/dL, HDL: 55 mg/dL, Triglycerides: 140 mg/dL',
+          status: 'completed', reportUrl: null, requestedBy: 2
+        },
+        {
+          patientId: 4, doctorId: 2, testType: 'Thyroid Function Test',
+          date: '2024-02-01 08:45:00', results: null,
+          status: 'pending', reportUrl: null, requestedBy: 2
+        },
+        {
+          patientId: 4, doctorId: 2, testType: 'Liver Function Test',
+          date: '2024-01-25 11:15:00', results: 'ALT: 28 U/L, AST: 32 U/L, Bilirubin Total: 0.8 mg/dL, Albumin: 4.2 g/dL',
+          status: 'completed', reportUrl: '/reports/liver-function-20240125.pdf', requestedBy: 2
+        },
+        {
+          patientId: 4, doctorId: 2, testType: 'Urinalysis',
+          date: '2024-02-05 14:00:00', results: null,
+          status: 'cancelled', reportUrl: null, requestedBy: 2
+        }
+      ];
+
+      for (const labResult of mockLabResults) {
+        await appConn.query(`
+          INSERT INTO lab_results (patientId, doctorId, testType, date, results, status, reportUrl, requestedBy)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [labResult.patientId, labResult.doctorId, labResult.testType, labResult.date, labResult.results, labResult.status, labResult.reportUrl, labResult.requestedBy]);
+      }
+    }
   } catch (error) {
     console.error('Error populating database with initial data:', error);
   }
@@ -231,6 +269,30 @@ async function ensureDatabaseAndTables() {
       INDEX idx_date (date),
       INDEX idx_status (status),
       INDEX idx_createdBy (createdBy)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
+  await appConn.query(`
+    CREATE TABLE IF NOT EXISTS lab_results (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      patientId INT NOT NULL,
+      doctorId INT NOT NULL,
+      testType VARCHAR(255) NOT NULL,
+      date DATETIME NOT NULL,
+      results TEXT NULL,
+      status ENUM('pending', 'completed', 'cancelled') NOT NULL DEFAULT 'pending',
+      reportUrl VARCHAR(500) NULL,
+      requestedBy INT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_patient (patientId),
+      INDEX idx_doctor (doctorId),
+      INDEX idx_status (status),
+      INDEX idx_date (date),
+      INDEX idx_requested_by (requestedBy),
+      FOREIGN KEY (patientId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (doctorId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (requestedBy) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
@@ -838,6 +900,253 @@ app.patch('/api/messages/:id/read', (req, res) => {
     if (err) return res.status(500).json({ message: 'Failed to mark message as read' });
     if (results.affectedRows === 0) return res.status(404).json({ message: 'Message not found' });
     res.json({ message: 'Message marked as read' });
+  });
+});
+
+// ==================== LAB RESULTS ROUTES ====================
+
+app.get('/api/lab-results', (req, res) => {
+  const { patientId, doctorId, status, testType } = req.query;
+  let sql = `
+    SELECT lr.*, 
+           p.name as patientName, 
+           d.name as doctorName, 
+           r.name as requestedByName
+    FROM lab_results lr
+    LEFT JOIN users p ON lr.patientId = p.id
+    LEFT JOIN users d ON lr.doctorId = d.id
+    LEFT JOIN users r ON lr.requestedBy = r.id
+  `;
+  const params = [];
+  
+  if (patientId || doctorId || status || testType) {
+    sql += ' WHERE';
+    const conditions = [];
+    if (patientId) { conditions.push('lr.patientId = ?'); params.push(patientId); }
+    if (doctorId) { conditions.push('lr.doctorId = ?'); params.push(doctorId); }
+    if (status) { conditions.push('lr.status = ?'); params.push(status); }
+    if (testType) { conditions.push('lr.testType LIKE ?'); params.push(`%${testType}%`); }
+    sql += ' ' + conditions.join(' AND ');
+  }
+  
+  sql += ' ORDER BY lr.date DESC';
+  
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ message: 'Failed to fetch lab results' });
+    }
+    res.json(results);
+  });
+});
+
+app.get('/api/lab-results/patient/:patientId', (req, res) => {
+  const { patientId } = req.params;
+  
+  // Basic authorization check - in a real app, you'd verify the requesting user
+  if (!patientId) {
+    return res.status(400).json({ message: 'Patient ID is required' });
+  }
+  
+  const sql = `
+    SELECT lr.*, 
+           p.name as patientName, 
+           d.name as doctorName, 
+           r.name as requestedByName
+    FROM lab_results lr
+    LEFT JOIN users p ON lr.patientId = p.id
+    LEFT JOIN users d ON lr.doctorId = d.id
+    LEFT JOIN users r ON lr.requestedBy = r.id
+    WHERE lr.patientId = ?
+    ORDER BY lr.date DESC
+  `;
+  
+  db.query(sql, [patientId], (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ message: 'Failed to fetch patient lab results' });
+    }
+    res.json(results);
+  });
+});
+
+app.get('/api/lab-results/:id', (req, res) => {
+  const { id } = req.params;
+  
+  if (!id) {
+    return res.status(400).json({ message: 'Lab result ID is required' });
+  }
+  
+  const sql = `
+    SELECT lr.*, 
+           p.name as patientName, 
+           d.name as doctorName, 
+           r.name as requestedByName
+    FROM lab_results lr
+    LEFT JOIN users p ON lr.patientId = p.id
+    LEFT JOIN users d ON lr.doctorId = d.id
+    LEFT JOIN users r ON lr.requestedBy = r.id
+    WHERE lr.id = ?
+  `;
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ message: 'Failed to fetch lab result' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Lab result not found' });
+    }
+    res.json(results[0]);
+  });
+});
+
+app.post('/api/lab-results', (req, res) => {
+  const { patientId, doctorId, testType, date, results, status, reportUrl, requestedBy } = req.body;
+  
+  // Validate required fields
+  if (!patientId || !doctorId || !testType || !date || !requestedBy) {
+    return res.status(400).json({ message: 'Missing required fields: patientId, doctorId, testType, date, requestedBy' });
+  }
+  
+  // Convert date to MySQL format
+  const mysqlDate = toMySQLDateTime(date);
+  if (!mysqlDate) {
+    return res.status(400).json({ message: 'Invalid date format' });
+  }
+  
+  const sql = `
+    INSERT INTO lab_results (patientId, doctorId, testType, date, results, status, reportUrl, requestedBy)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  
+  db.query(sql, [
+    patientId, 
+    doctorId, 
+    testType, 
+    mysqlDate, 
+    results || null, 
+    status || 'pending', 
+    reportUrl || null, 
+    requestedBy
+  ], (err, insertResults) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ message: 'Failed to create lab result' });
+    }
+    
+    // Fetch the created lab result with associated names
+    const newLabResultId = insertResults.insertId;
+    const fetchSql = `
+      SELECT lr.*, 
+             p.name as patientName, 
+             d.name as doctorName, 
+             r.name as requestedByName
+      FROM lab_results lr
+      LEFT JOIN users p ON lr.patientId = p.id
+      LEFT JOIN users d ON lr.doctorId = d.id
+      LEFT JOIN users r ON lr.requestedBy = r.id
+      WHERE lr.id = ?
+    `;
+    
+    db.query(fetchSql, [newLabResultId], (err, labResults) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ message: 'Lab result created but failed to fetch details' });
+      }
+      res.status(201).json(labResults[0]);
+    });
+  });
+});
+
+app.put('/api/lab-results/:id', (req, res) => {
+  const { id } = req.params;
+  const { patientId, doctorId, testType, date, results, status, reportUrl, requestedBy } = req.body;
+  
+  if (!id) {
+    return res.status(400).json({ message: 'Lab result ID is required' });
+  }
+  
+  // Validate required fields
+  if (!patientId || !doctorId || !testType || !date || !requestedBy) {
+    return res.status(400).json({ message: 'Missing required fields: patientId, doctorId, testType, date, requestedBy' });
+  }
+  
+  // Convert date to MySQL format
+  const mysqlDate = toMySQLDateTime(date);
+  if (!mysqlDate) {
+    return res.status(400).json({ message: 'Invalid date format' });
+  }
+  
+  const sql = `
+    UPDATE lab_results 
+    SET patientId = ?, doctorId = ?, testType = ?, date = ?, results = ?, status = ?, reportUrl = ?, requestedBy = ?
+    WHERE id = ?
+  `;
+  
+  db.query(sql, [
+    patientId, 
+    doctorId, 
+    testType, 
+    mysqlDate, 
+    results || null, 
+    status || 'pending', 
+    reportUrl || null, 
+    requestedBy,
+    id
+  ], (err, updateResults) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ message: 'Failed to update lab result' });
+    }
+    
+    if (updateResults.affectedRows === 0) {
+      return res.status(404).json({ message: 'Lab result not found' });
+    }
+    
+    // Fetch the updated lab result with associated names
+    const fetchSql = `
+      SELECT lr.*, 
+             p.name as patientName, 
+             d.name as doctorName, 
+             r.name as requestedByName
+      FROM lab_results lr
+      LEFT JOIN users p ON lr.patientId = p.id
+      LEFT JOIN users d ON lr.doctorId = d.id
+      LEFT JOIN users r ON lr.requestedBy = r.id
+      WHERE lr.id = ?
+    `;
+    
+    db.query(fetchSql, [id], (err, labResults) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ message: 'Lab result updated but failed to fetch details' });
+      }
+      res.json(labResults[0]);
+    });
+  });
+});
+
+app.delete('/api/lab-results/:id', (req, res) => {
+  const { id } = req.params;
+  
+  if (!id) {
+    return res.status(400).json({ message: 'Lab result ID is required' });
+  }
+  
+  const sql = 'DELETE FROM lab_results WHERE id = ?';
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ message: 'Failed to delete lab result' });
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Lab result not found' });
+    }
+    
+    res.json({ message: 'Lab result deleted successfully' });
   });
 });
 
