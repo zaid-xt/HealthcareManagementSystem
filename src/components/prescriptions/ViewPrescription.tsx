@@ -4,6 +4,7 @@ import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import type { Prescription } from '../../types';
 
+
 interface ViewPrescriptionProps {
   prescription: Prescription;
   onClose: () => void;
@@ -34,6 +35,7 @@ const ViewPrescription: React.FC<ViewPrescriptionProps> = ({
     email: 'Loading...'
   });
   const [loading, setLoading] = useState(true);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => {
     const fetchPatientData = async () => {
@@ -221,8 +223,288 @@ const ViewPrescription: React.FC<ViewPrescriptionProps> = ({
     }
   };
 
-  const handleExportPDF = () => {
-    alert('PDF export functionality would call a backend service to generate a downloadable PDF file.');
+  const handleExportPDF = async () => {
+    setPdfLoading(true);
+    try {
+      // Create a more PDF-friendly HTML content
+      const pdfContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Prescription_${prescription.id}</title>
+          <meta charset="UTF-8">
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+              margin: 40px; 
+              line-height: 1.6; 
+              color: #374151; 
+              background: white;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 40px; 
+              padding-bottom: 20px; 
+              border-bottom: 3px double #3b82f6; 
+            }
+            .hospital-name { 
+              font-size: 28px; 
+              font-weight: bold; 
+              color: #1e40af; 
+              margin-bottom: 10px; 
+            }
+            .document-title { 
+              font-size: 22px; 
+              color: #374151; 
+              margin-bottom: 10px; 
+              font-weight: 600;
+            }
+            .section { 
+              margin-bottom: 30px; 
+              padding: 25px; 
+              border: 1px solid #e5e7eb; 
+              border-radius: 8px; 
+              background: #f9fafb; 
+            }
+            .section-title { 
+              font-weight: 700; 
+              color: #1e40af; 
+              margin-bottom: 20px; 
+              font-size: 18px; 
+              border-bottom: 2px solid #d1d5db; 
+              padding-bottom: 10px; 
+            }
+            .medication { 
+              border: 1px solid #d1d5db; 
+              padding: 20px; 
+              margin-bottom: 20px; 
+              border-radius: 8px; 
+              background: white; 
+              page-break-inside: avoid;
+            }
+            .medication-header { 
+              display: flex; 
+              justify-content: space-between; 
+              margin-bottom: 15px; 
+            }
+            .grid-2 { 
+              display: grid; 
+              grid-template-columns: 1fr 1fr; 
+              gap: 25px; 
+              margin-bottom: 30px;
+            }
+            .grid-4 { 
+              display: grid; 
+              grid-template-columns: 1fr 1fr 1fr 1fr; 
+              gap: 20px; 
+            }
+            .notes { 
+              background: #fef3c7; 
+              padding: 20px; 
+              border-radius: 8px; 
+              border-left: 6px solid #f59e0b; 
+            }
+            .footer { 
+              margin-top: 50px; 
+              text-align: center; 
+              font-size: 14px; 
+              color: #6b7280; 
+              padding-top: 25px; 
+              border-top: 2px solid #e5e7eb; 
+            }
+            .status { 
+              display: inline-block; 
+              padding: 6px 16px; 
+              border-radius: 20px; 
+              font-size: 14px; 
+              font-weight: 700; 
+            }
+            .patient-info p, .doctor-info p {
+              margin-bottom: 8px;
+              font-size: 14px;
+            }
+            .medication strong {
+              font-size: 15px;
+            }
+            @media print {
+              body { margin: 20px; }
+              .section { page-break-inside: avoid; }
+              .medication { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="hospital-name">HEALTHCARE HOSPITAL</div>
+            <div class="document-title">MEDICAL PRESCRIPTION</div>
+            <div style="font-size: 16px; color: #6b7280;">
+              Prescription ID: ${prescription.id} | Date: ${new Date(prescription.date).toLocaleDateString()}
+            </div>
+          </div>
+          
+          <div class="grid-2">
+            <div class="section">
+              <div class="section-title">PATIENT INFORMATION</div>
+              <div class="patient-info">
+                <p><strong>Name:</strong> ${patientData.name}</p>
+                <p><strong>ID Number:</strong> ${patientData.idNumber}</p>
+                <p><strong>Contact:</strong> ${patientData.contact}</p>
+                <p><strong>Email:</strong> ${patientData.email}</p>
+              </div>
+            </div>
+            
+            <div class="section">
+              <div class="section-title">PRESCRIBING DOCTOR</div>
+              <div class="doctor-info">
+                <p><strong>Name:</strong> ${prescription.doctorName || 'N/A'}</p>
+                <p><strong>Date Issued:</strong> ${new Date(prescription.date).toLocaleDateString()}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">PRESCRIPTION DETAILS</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div>
+                <p><strong>Prescription ID:</strong> ${prescription.id}</p>
+                <p><strong>Status:</strong> 
+                  <span class="status" style="background: ${prescription.status === 'active' ? '#d1fae5' : prescription.status === 'completed' ? '#dbeafe' : '#fee2e2'}; color: ${prescription.status === 'active' ? '#065f46' : prescription.status === 'completed' ? '#1e40af' : '#991b1b'};">
+                    ${prescription.status.toUpperCase()}
+                  </span>
+                </p>
+              </div>
+              <div>
+                <p><strong>Created By:</strong> ${prescription.createdByName || 'System'}</p>
+                <p><strong>Last Updated:</strong> ${new Date(prescription.updatedAt || prescription.date).toLocaleDateString()}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">PRESCRIBED MEDICATIONS</div>
+            ${prescriptionMedications.length > 0 ? 
+              prescriptionMedications.map(med => `
+                <div class="medication">
+                  <div class="medication-header">
+                    <strong style="font-size: 16px;">${med.medicineName || 'Unknown Medicine'}</strong>
+                    <span style="font-size: 14px; color: #6b7280; background: #f3f4f6; padding: 4px 12px; border-radius: 6px;">
+                      ${med.dosageForm || ''} ${med.strength ? `• ${med.strength}` : ''}
+                    </span>
+                  </div>
+                  <div class="grid-4">
+                    <div><strong style="color: #374151;">Dosage:</strong><br><span style="font-size: 14px;">${med.dosage}</span></div>
+                    <div><strong style="color: #374151;">Frequency:</strong><br><span style="font-size: 14px;">${med.frequency}</span></div>
+                    <div><strong style="color: #374151;">Duration:</strong><br><span style="font-size: 14px;">${med.duration}</span></div>
+                    <div><strong style="color: #374151;">Quantity:</strong><br><span style="font-size: 14px;">${med.quantity}</span></div>
+                  </div>
+                  ${med.instructions ? `
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 2px dashed #d1d5db;">
+                      <strong style="font-size: 14px; color: #374151;">Special Instructions:</strong>
+                      <div style="font-size: 14px; margin-top: 8px; color: #6b7280; line-height: 1.5;">${med.instructions}</div>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('') : 
+              '<p style="text-align: center; color: #6b7280; font-style: italic; padding: 40px;">No medications prescribed</p>'
+            }
+          </div>
+          
+          ${prescription.notes ? `
+            <div class="section notes">
+              <div class="section-title">ADDITIONAL NOTES</div>
+              <div style="font-size: 14px; line-height: 1.6;">${prescription.notes}</div>
+            </div>
+          ` : ''}
+          
+          <div class="footer">
+            <p style="margin-bottom: 10px;">This is a computer-generated document. No signature is required.</p>
+            <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+            <p style="margin-top: 10px; font-weight: 600;">Healthcare Hospital Management System</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Method 1: Using html2pdf.js (you'll need to install it)
+      // If you have html2pdf.js available:
+      if (typeof window.html2pdf !== 'undefined') {
+        const element = document.createElement('div');
+        element.innerHTML = pdfContent;
+        const opt = {
+          margin: [10, 10, 10, 10],
+          filename: `prescription_${prescription.id}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        
+        await window.html2pdf().set(opt).from(element).save();
+      } 
+      // Method 2: Using print to PDF (fallback)
+      else {
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(pdfContent);
+          printWindow.document.close();
+          
+          // Wait for content to load then trigger print dialog
+          setTimeout(() => {
+            printWindow.print();
+            // Optional: Close the window after printing
+            // printWindow.close();
+          }, 500);
+        }
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again or use the print function.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  // Alternative PDF generation using server-side API
+  const handleExportPDFServer = async () => {
+    setPdfLoading(true);
+    try {
+      // Send prescription data to backend to generate PDF
+      const response = await fetch('http://localhost:5000/api/generate-prescription-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prescription: {
+            ...prescription,
+            patientData,
+            medications: prescriptionMedications
+          }
+        })
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `prescription_${prescription.id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        throw new Error('Failed to generate PDF');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      // Fallback to client-side method
+      await handleExportPDF();
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const getDataColor = (value: string) => {
@@ -460,9 +742,13 @@ const ViewPrescription: React.FC<ViewPrescriptionProps> = ({
         <Button
           variant="outline"
           onClick={handleExportPDF}
-          leftIcon={<Download className="h-4 w-4" />}
+          disabled={pdfLoading}
+          leftIcon={pdfLoading ? 
+            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div> : 
+            <Download className="h-4 w-4" />
+          }
         >
-          Export PDF
+          {pdfLoading ? 'Generating PDF...' : 'Download PDF'}
         </Button>
       </div>
     </div>
