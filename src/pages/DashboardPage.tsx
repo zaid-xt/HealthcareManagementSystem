@@ -298,9 +298,17 @@ const DashboardPage: React.FC = () => {
                 <div onClick={() => navigate('/wards')} className="cursor-pointer">
                   <StatsCard 
                     title="Available Beds"
-                    value={wardsLoading ? '...' : wardsError ? 'Error' : wards.reduce((total, ward) => total + ward.availableBeds, 0)}
+                    value={wardsLoading 
+                      ? '...' 
+                      : wardsError 
+                      ? 'Error' 
+                      : wards.reduce((total, ward) => total + ward.availableBeds, 0)}
                     icon={<Building className="h-5 w-5" />}
-                    description={wardsLoading ? 'Loading...' : wardsError ? 'Failed to load' : `Across ${wards.length} wards`}
+                    description={wardsLoading 
+                      ? 'Loading...' 
+                      : wardsError 
+                      ? 'Failed to load' 
+                      : `Across ${wards.length} wards (${wards.reduce((total, ward) => total + ward.totalBeds, 0)} total)`}
                     color="purple"
                   />
                 </div>
