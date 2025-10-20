@@ -4,7 +4,6 @@ import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import type { Prescription } from '../../types';
 
-
 interface ViewPrescriptionProps {
   prescription: Prescription;
   onClose: () => void;

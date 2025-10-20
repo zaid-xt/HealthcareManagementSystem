@@ -94,7 +94,7 @@ const PrescriptionsPage: React.FC = () => {
     }
   };
 
-  // Filter prescriptions based on user role
+  // Filter prescriptions based on user role and search criteria
   const filteredPrescriptions = prescriptions.filter(prescription => {
     // Role-based filtering
     if (user?.role === 'patient') {
@@ -106,9 +106,18 @@ const PrescriptionsPage: React.FC = () => {
     }
     // Admins can see all prescriptions
 
-    // Search filtering
-    const searchString = `${prescription.patientName || ''} ${prescription.doctorName || ''}`.toLowerCase();
-    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
+    // Search filtering - now includes patient name, patient ID number, and doctor name
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const patientNameMatch = prescription.patientName?.toLowerCase().includes(searchLower) || false;
+      const patientIdNumberMatch = prescription.patientIdNumber?.toString().toLowerCase().includes(searchLower) || false;
+      const doctorNameMatch = prescription.doctorName?.toLowerCase().includes(searchLower) || false;
+      
+      // If search term doesn't match any of the criteria, filter out
+      if (!patientNameMatch && !patientIdNumberMatch && !doctorNameMatch) {
+        return false;
+      }
+    }
 
     // Status filtering
     const matchesStatus = !filters.status || prescription.status === filters.status;
@@ -121,7 +130,7 @@ const PrescriptionsPage: React.FC = () => {
       (!filters.startDate || prescription.date >= filters.startDate) &&
       (!filters.endDate || prescription.date <= filters.endDate);
 
-    return matchesSearch && matchesStatus && matchesDoctor && matchesDateRange;
+    return matchesStatus && matchesDoctor && matchesDateRange;
   });
 
   const handleAddPrescription = async (newPrescription: any) => {
@@ -284,7 +293,7 @@ const PrescriptionsPage: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="search"
-              placeholder="Search prescriptions by patient or doctor name..."
+              placeholder="Search by patient name, ID number, or doctor name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
