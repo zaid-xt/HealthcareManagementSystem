@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Save, X, Plus, Trash2 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import { medicines, orderLines } from '../../utils/mockData';
-import type { Prescription, OrderLine } from '../../types';
+import { prescriptionAPI, type Medicine } from '../../api/prescriptionApi';
+import type { Prescription } from '../../types';
 
 interface EditPrescriptionFormProps {
   prescription: Prescription;
@@ -33,35 +33,47 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
   });
 
   const [medications, setMedications] = useState<MedicationItem[]>([]);
-
-  useEffect(() => {
-    // Load existing medications for this prescription
-    const existingOrderLines = orderLines.filter(ol => ol.prescriptionId === prescription.id);
-    if (existingOrderLines.length > 0) {
-      setMedications(existingOrderLines.map(ol => ({
-        id: ol.id,
-        medicineId: ol.medicineId,
-        dosage: ol.dosage,
-        frequency: ol.frequency,
-        duration: ol.duration,
-        quantity: ol.quantity,
-        instructions: ol.instructions
-      })));
-    } else {
-      setMedications([{
-        medicineId: '',
-        dosage: '',
-        frequency: '',
-        duration: '',
-        quantity: 1,
-        instructions: ''
-      }]);
-    }
-  }, [prescription.id]);
-
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({
     medications: ''
   });
+
+  // Load medicines and existing prescription medications
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const medicinesData = await prescriptionAPI.getMedicines();
+        setMedicines(medicinesData);
+        
+        // Use the medications from the prescription prop (already loaded from API)
+        if (prescription.medications && prescription.medications.length > 0) {
+          setMedications(prescription.medications.map(med => ({
+            id: med.id,
+            medicineId: med.medicineId,
+            dosage: med.dosage,
+            frequency: med.frequency,
+            duration: med.duration,
+            quantity: med.quantity,
+            instructions: med.instructions || ''
+          })));
+        } else {
+          setMedications([{
+            medicineId: '',
+            dosage: '',
+            frequency: '',
+            duration: '',
+            quantity: 1,
+            instructions: ''
+          }]);
+        }
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      }
+    };
+
+    loadData();
+  }, [prescription]);
 
   const validateForm = () => {
     const newErrors = {
@@ -82,50 +94,43 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
     return isValid;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) return;
 
-    // Update prescription
-    const updatedPrescription: Prescription = {
-      ...prescription,
-      ...formData
-    };
+    setLoading(true);
 
-    // Update order lines
-    // First, remove existing order lines for this prescription
-    const existingOrderLineIds = orderLines
-      .filter(ol => ol.prescriptionId === prescription.id)
-      .map(ol => ol.id);
-    
-    existingOrderLineIds.forEach(id => {
-      const index = orderLines.findIndex(ol => ol.id === id);
-      if (index !== -1) {
-        orderLines.splice(index, 1);
-      }
-    });
-
-    // Add updated order lines
-    const validMedications = medications.filter(med => 
-      med.medicineId && med.dosage && med.frequency && med.duration && med.quantity > 0
-    );
-
-    validMedications.forEach((med, index) => {
-      const orderLine: OrderLine = {
-        id: med.id || `order${Date.now()}_${index}`,
-        prescriptionId: prescription.id,
-        medicineId: med.medicineId,
-        dosage: med.dosage,
-        frequency: med.frequency,
-        duration: med.duration,
-        quantity: med.quantity,
-        instructions: med.instructions
+    try {
+      // Prepare updated prescription data
+      const updatedPrescription: Prescription = {
+        ...prescription,
+        ...formData
       };
-      orderLines.push(orderLine);
-    });
 
-    onSave(updatedPrescription);
+      // Prepare medications for API
+      const validMedications = medications
+        .filter(med => med.medicineId && med.dosage && med.frequency && med.duration && med.quantity > 0)
+        .map(med => ({
+          id: med.id, // Keep existing IDs for updates
+          medicineId: med.medicineId,
+          dosage: med.dosage,
+          frequency: med.frequency,
+          duration: med.duration,
+          quantity: med.quantity,
+          instructions: med.instructions
+        }));
+
+      // Call the onSave callback with the updated data
+      onSave({
+        ...updatedPrescription,
+        medications: validMedications
+      });
+    } catch (error) {
+      console.error('Error preparing prescription data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const addMedication = () => {
@@ -160,6 +165,7 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
           value={formData.date}
           onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
           required
+          disabled={loading}
         />
 
         <div>
@@ -170,6 +176,7 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
             value={formData.status}
             onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as Prescription['status'] }))}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            disabled={loading}
           >
             <option value="active">Active</option>
             <option value="completed">Completed</option>
@@ -188,6 +195,7 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
           rows={3}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           placeholder="Additional notes or instructions..."
+          disabled={loading}
         />
       </div>
 
@@ -200,6 +208,7 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
             size="sm"
             onClick={addMedication}
             leftIcon={<Plus className="h-4 w-4" />}
+            disabled={loading}
           >
             Add Medication
           </Button>
@@ -221,6 +230,7 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
                   onClick={() => removeMedication(index)}
                   className="text-red-600 hover:bg-red-50"
                   leftIcon={<Trash2 className="h-4 w-4" />}
+                  disabled={loading}
                 >
                   Remove
                 </Button>
@@ -237,11 +247,12 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
                   onChange={(e) => updateMedication(index, 'medicineId', e.target.value)}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   required
+                  disabled={loading}
                 >
                   <option value="">Select medicine</option>
                   {medicines.map(medicine => (
                     <option key={medicine.id} value={medicine.id}>
-                      {medicine.name} ({medicine.dosageForm})
+                      {medicine.name} {medicine.strength && `(${medicine.strength})`} - {medicine.dosageForm}
                     </option>
                   ))}
                 </select>
@@ -253,6 +264,7 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
                 onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
                 placeholder="e.g., 10mg, 1 tablet"
                 required
+                disabled={loading}
               />
 
               <Input
@@ -261,6 +273,7 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
                 onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
                 placeholder="e.g., Twice daily, Every 8 hours"
                 required
+                disabled={loading}
               />
 
               <Input
@@ -269,6 +282,7 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
                 onChange={(e) => updateMedication(index, 'duration', e.target.value)}
                 placeholder="e.g., 7 days, 2 weeks"
                 required
+                disabled={loading}
               />
 
               <Input
@@ -278,6 +292,7 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
                 onChange={(e) => updateMedication(index, 'quantity', parseInt(e.target.value) || 1)}
                 min="1"
                 required
+                disabled={loading}
               />
             </div>
 
@@ -291,6 +306,7 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
                 rows={2}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 placeholder="Special instructions for taking this medication..."
+                disabled={loading}
               />
             </div>
           </div>
@@ -303,14 +319,16 @@ const EditPrescriptionForm: React.FC<EditPrescriptionFormProps> = ({
           variant="outline"
           onClick={onCancel}
           leftIcon={<X className="h-4 w-4" />}
+          disabled={loading}
         >
           Cancel
         </Button>
         <Button
           type="submit"
           leftIcon={<Save className="h-4 w-4" />}
+          disabled={loading}
         >
-          Save Changes
+          {loading ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
     </form>

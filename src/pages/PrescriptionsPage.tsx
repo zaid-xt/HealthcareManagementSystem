@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pill, Plus, Search, Filter, Edit2, Eye, Trash2, User, Calendar } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
@@ -7,11 +7,14 @@ import AddPrescriptionForm from '../components/prescriptions/AddPrescriptionForm
 import EditPrescriptionForm from '../components/prescriptions/EditPrescriptionForm';
 import ViewPrescription from '../components/prescriptions/ViewPrescription';
 import { useAuth } from '../context/AuthContext';
-import { prescriptions, orderLines, patients, doctors, medicines } from '../utils/mockData';
-import type { Prescription, OrderLine } from '../types';
+import { prescriptionAPI, type Prescription, type Medicine } from '../api/prescriptionApi';
 
 const PrescriptionsPage: React.FC = () => {
   const { user } = useAuth();
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [patients, setPatients] = useState<any[]>([]);
+  const [doctors, setDoctors] = useState<any[]>([]);
   const [isAddingPrescription, setIsAddingPrescription] = useState(false);
   const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
   const [viewingPrescription, setViewingPrescription] = useState<Prescription | null>(null);
@@ -24,12 +27,75 @@ const PrescriptionsPage: React.FC = () => {
     endDate: ''
   });
   const [prescriptionToDelete, setPrescriptionToDelete] = useState<Prescription | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load data from API
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [prescriptionsData, medicinesData, patientsData, doctorsData] = await Promise.all([
+        prescriptionAPI.getPrescriptions(),
+        prescriptionAPI.getMedicines(),
+        prescriptionAPI.getPatients(),
+        prescriptionAPI.getDoctors()
+      ]);
+
+      // Build a map of patients by id for quick lookup
+      const patientById = new Map<string, any>();
+      patientsData.forEach((p: any) => patientById.set(p.id || p._id || String(p.patientId || ''), p));
+
+      const getPatientIdNumber = (patient: any) => {
+        if (!patient) return undefined;
+        return patient.patientIdNumber ??
+               patient.idNumber ??
+               patient.id_number ??
+               patient.nationalId ??
+               patient.identityNumber ??
+               patient.identity_number ??
+               patient.idNo ??
+               patient.documentId ??
+               patient.identificationNumber ??
+               patient.id ??
+               patient._id;
+      };
+
+      // Attach resolved patient fields to prescriptions as fallbacks
+      const enhancedPrescriptions = prescriptionsData.map((presc: any) => {
+        const patient = patientById.get(presc.patientId);
+        const idNumberFromPatient = getPatientIdNumber(patient);
+        return {
+          ...presc,
+          // keep existing explicit fields, but fall back to patient join
+          patientName: presc.patientName || (patient?.name || `${patient?.firstName || ''} ${patient?.lastName || ''}`.trim()),
+          patientIdNumber: presc.patientIdNumber || idNumberFromPatient || presc.patientId,
+          patientContact: presc.patientContact || patient?.phone || patient?.mobile || patient?.contactNumber,
+          patientEmail: presc.patientEmail || patient?.email,
+        } as Prescription;
+      });
+
+      console.log('Loaded prescriptions (enhanced):', enhancedPrescriptions);
+      
+      setPrescriptions(enhancedPrescriptions);
+      setMedicines(medicinesData);
+      setPatients(patientsData);
+      setDoctors(doctorsData);
+    } catch (error: any) {
+      console.error('Failed to load data:', error);
+      setError(error.message || 'Failed to load prescriptions data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter prescriptions based on user role
   const filteredPrescriptions = prescriptions.filter(prescription => {
-    const patient = patients.find(p => p.id === prescription.patientId);
-    const doctor = doctors.find(d => d.id === prescription.doctorId);
-    
     // Role-based filtering
     if (user?.role === 'patient') {
       // Patients can only see their own prescriptions
@@ -41,7 +107,7 @@ const PrescriptionsPage: React.FC = () => {
     // Admins can see all prescriptions
 
     // Search filtering
-    const searchString = `${patient?.firstName} ${patient?.lastName} ${doctor?.firstName} ${doctor?.lastName}`.toLowerCase();
+    const searchString = `${prescription.patientName || ''} ${prescription.doctorName || ''}`.toLowerCase();
     const matchesSearch = searchString.includes(searchTerm.toLowerCase());
 
     // Status filtering
@@ -58,41 +124,53 @@ const PrescriptionsPage: React.FC = () => {
     return matchesSearch && matchesStatus && matchesDoctor && matchesDateRange;
   });
 
-  const handleAddPrescription = (newPrescription: Partial<Prescription>) => {
-    const prescription: Prescription = {
-      id: `presc${Date.now()}`,
-      createdBy: user?.id || '',
-      ...newPrescription as Prescription
-    };
-    prescriptions.push(prescription);
-    setIsAddingPrescription(false);
-  };
-
-  const handleUpdatePrescription = (updatedPrescription: Prescription) => {
-    const prescriptionIndex = prescriptions.findIndex(p => p.id === updatedPrescription.id);
-    if (prescriptionIndex !== -1) {
-      prescriptions[prescriptionIndex] = updatedPrescription;
+  const handleAddPrescription = async (newPrescription: any) => {
+    try {
+      setError(null);
+      const createdPrescription = await prescriptionAPI.createPrescription({
+        ...newPrescription,
+        createdBy: user?.id || ''
+      });
+      setPrescriptions(prev => [createdPrescription, ...prev]);
+      setIsAddingPrescription(false);
+    } catch (error: any) {
+      console.error('Failed to create prescription:', error);
+      setError(error.message || 'Failed to create prescription');
     }
-    setEditingPrescription(null);
   };
 
-  const handleDeletePrescription = () => {
+  const handleUpdatePrescription = async (updatedPrescription: Prescription) => {
+    try {
+      setError(null);
+      const { id, patientId, doctorId, date, status, notes, medications } = updatedPrescription;
+      const result = await prescriptionAPI.updatePrescription(id, {
+        patientId,
+        doctorId,
+        date,
+        status,
+        notes,
+        medications
+      });
+      setPrescriptions(prev => prev.map(p => p.id === result.id ? result : p));
+      setEditingPrescription(null);
+    } catch (error: any) {
+      console.error('Failed to update prescription:', error);
+      setError(error.message || 'Failed to update prescription');
+    }
+  };
+
+  const handleDeletePrescription = async () => {
     if (!prescriptionToDelete) return;
     
-    const prescriptionIndex = prescriptions.findIndex(p => p.id === prescriptionToDelete.id);
-    if (prescriptionIndex !== -1) {
-      prescriptions.splice(prescriptionIndex, 1);
-      
-      // Also remove associated order lines
-      const orderLinesToRemove = orderLines.filter(ol => ol.prescriptionId === prescriptionToDelete.id);
-      orderLinesToRemove.forEach(ol => {
-        const orderIndex = orderLines.findIndex(o => o.id === ol.id);
-        if (orderIndex !== -1) {
-          orderLines.splice(orderIndex, 1);
-        }
-      });
+    try {
+      setError(null);
+      await prescriptionAPI.deletePrescription(prescriptionToDelete.id);
+      setPrescriptions(prev => prev.filter(p => p.id !== prescriptionToDelete.id));
+      setPrescriptionToDelete(null);
+    } catch (error: any) {
+      console.error('Failed to delete prescription:', error);
+      setError(error.message || 'Failed to delete prescription');
     }
-    setPrescriptionToDelete(null);
   };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -124,6 +202,43 @@ const PrescriptionsPage: React.FC = () => {
   };
 
   const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading prescriptions...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (error && !isAddingPrescription && !editingPrescription && !viewingPrescription) {
+      return (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <div className="text-red-600">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+            </div>
+            <div className="ml-auto pl-3">
+              <button
+                onClick={loadData}
+                className="text-red-800 hover:text-red-900 text-sm font-medium"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (viewingPrescription) {
       return (
         <ViewPrescription
@@ -169,7 +284,7 @@ const PrescriptionsPage: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="search"
-              placeholder="Search prescriptions..."
+              placeholder="Search prescriptions by patient or doctor name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -181,6 +296,13 @@ const PrescriptionsPage: React.FC = () => {
             onClick={() => setShowFilters(!showFilters)}
           >
             Filter
+          </Button>
+          <Button
+            variant="outline"
+            onClick={loadData}
+            disabled={loading}
+          >
+            Refresh
           </Button>
         </div>
 
@@ -224,7 +346,7 @@ const PrescriptionsPage: React.FC = () => {
                     <option value="">All Doctors</option>
                     {doctors.map(doctor => (
                       <option key={doctor.id} value={doctor.id}>
-                        Dr. {doctor.firstName} {doctor.lastName}
+                        {doctor.name}
                       </option>
                     ))}
                   </select>
@@ -284,9 +406,7 @@ const PrescriptionsPage: React.FC = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredPrescriptions.map((prescription) => {
-                    const patient = patients.find(p => p.id === prescription.patientId);
-                    const doctor = doctors.find(d => d.id === prescription.doctorId);
-                    const prescriptionOrderLines = orderLines.filter(ol => ol.prescriptionId === prescription.id);
+                    const prescriptionMedications = prescription.medications || [];
                     
                     return (
                       <tr key={prescription.id} className="hover:bg-gray-50">
@@ -294,25 +414,25 @@ const PrescriptionsPage: React.FC = () => {
                           <div className="flex items-center">
                             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                               <span className="font-medium text-sm">
-                                {patient?.firstName[0]}{patient?.lastName[0]}
+                                {prescription.patientName?.charAt(0) || 'P'}
                               </span>
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
-                                {patient?.firstName} {patient?.lastName}
+                                {prescription.patientName}
                               </div>
                               <div className="text-sm text-gray-500">
-                                ID: {patient?.patientId}
+                                ID: {prescription.patientIdNumber}
                               </div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            Dr. {doctor?.firstName} {doctor?.lastName}
+                            {prescription.doctorName}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {doctor?.specialization}
+                            {prescription.specialization}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -323,14 +443,13 @@ const PrescriptionsPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm text-gray-900">
-                            {prescriptionOrderLines.length} medication(s)
+                            {prescriptionMedications.length} medication(s)
                           </div>
                           <div className="text-sm text-gray-500">
-                            {prescriptionOrderLines.slice(0, 2).map(ol => {
-                              const medicine = medicines.find(m => m.id === ol.medicineId);
-                              return medicine?.name;
-                            }).filter(Boolean).join(', ')}
-                            {prescriptionOrderLines.length > 2 && '...'}
+                            {prescriptionMedications.slice(0, 2).map(ol => 
+                              ol.medicineName
+                            ).filter(Boolean).join(', ')}
+                            {prescriptionMedications.length > 2 && '...'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

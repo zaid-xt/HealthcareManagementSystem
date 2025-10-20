@@ -130,6 +130,24 @@ async function populateInitialData(appConn) {
       }
     }
 
+const [medicineCount] = await appConn.query('SELECT COUNT(*) as count FROM medicines');
+if (medicineCount[0].count === 0) {
+  const mockMedicines = [
+    { id: 'med001', name: 'Amoxicillin', dosageForm: 'Capsule', strength: '500mg', description: 'Antibiotic used to treat bacterial infections' },
+    { id: 'med002', name: 'Lisinopril', dosageForm: 'Tablet', strength: '10mg', description: 'ACE inhibitor for high blood pressure' },
+    { id: 'med003', name: 'Metformin', dosageForm: 'Tablet', strength: '850mg', description: 'Oral diabetes medicine' },
+    { id: 'med004', name: 'Atorvastatin', dosageForm: 'Tablet', strength: '20mg', description: 'Statin for cholesterol management' },
+    { id: 'med005', name: 'Albuterol', dosageForm: 'Inhaler', strength: '90mcg', description: 'Bronchodilator for asthma' },
+    { id: 'med006', name: 'Ibuprofen', dosageForm: 'Tablet', strength: '400mg', description: 'NSAID for pain and inflammation' }
+  ];
+
+  for (const medicine of mockMedicines) {
+    await appConn.query(`
+      INSERT INTO medicines (id, name, dosageForm, strength, description)
+      VALUES (?, ?, ?, ?, ?)
+    `, [medicine.id, medicine.name, medicine.dosageForm, medicine.strength, medicine.description]);
+  }
+}
     const [labResultCount] = await appConn.query('SELECT COUNT(*) as count FROM lab_results');
     if (labResultCount[0].count === 0) {
       const mockLabResults = [
@@ -295,6 +313,57 @@ async function ensureDatabaseAndTables() {
       FOREIGN KEY (requestedBy) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
+// Add to ensureDatabaseAndTables() function after the lab_results table
+await appConn.query(`
+  CREATE TABLE IF NOT EXISTS prescriptions (
+    id VARCHAR(50) PRIMARY KEY,
+    patientId INT NOT NULL,
+    doctorId INT NOT NULL,
+    date DATE NOT NULL,
+    status ENUM('active', 'completed', 'cancelled') NOT NULL DEFAULT 'active',
+    notes TEXT NULL,
+    createdBy INT NOT NULL,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_patient (patientId),
+    INDEX idx_doctor (doctorId),
+    INDEX idx_date (date),
+    INDEX idx_status (status),
+    FOREIGN KEY (patientId) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (doctorId) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (createdBy) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`);
+
+await appConn.query(`
+  CREATE TABLE IF NOT EXISTS order_lines (
+    id VARCHAR(50) PRIMARY KEY,
+    prescriptionId VARCHAR(50) NOT NULL,
+    medicineId VARCHAR(50) NOT NULL,
+    dosage VARCHAR(100) NOT NULL,
+    frequency VARCHAR(100) NOT NULL,
+    duration VARCHAR(100) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    instructions TEXT NULL,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_prescription (prescriptionId),
+    INDEX idx_medicine (medicineId),
+    FOREIGN KEY (prescriptionId) REFERENCES prescriptions(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`);
+
+await appConn.query(`
+  CREATE TABLE IF NOT EXISTS medicines (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    dosageForm VARCHAR(100) NOT NULL,
+    strength VARCHAR(100) NULL,
+    description TEXT NULL,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`);
 
   try {
     await appConn.query(`ALTER TABLE users MODIFY COLUMN doctorId VARCHAR(50) NULL`);
@@ -1147,6 +1216,383 @@ app.delete('/api/lab-results/:id', (req, res) => {
     }
     
     res.json({ message: 'Lab result deleted successfully' });
+  });
+});
+
+// ==================== MEDICINES ROUTES ====================
+
+app.get('/api/medicines', (req, res) => {
+  const sql = 'SELECT * FROM medicines ORDER BY name';
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ message: 'Failed to fetch medicines' });
+    res.json(results);
+  });
+});
+
+// ==================== PRESCRIPTIONS ROUTES ====================
+
+app.get('/api/prescriptions', (req, res) => {
+  const { patientId, doctorId, status } = req.query;
+  let sql = `
+    SELECT p.*, 
+           pt.name as patientName,
+           pt.idNumber as patientIdNumber,
+           d.name as doctorName,
+           u.name as createdByName
+    FROM prescriptions p
+    LEFT JOIN users pt ON p.patientId = pt.id
+    LEFT JOIN users d ON p.doctorId = d.id
+    LEFT JOIN users u ON p.createdBy = u.id
+  `;
+  const params = [];
+  
+  if (patientId || doctorId || status) {
+    sql += ' WHERE';
+    const conditions = [];
+    if (patientId) { conditions.push('p.patientId = ?'); params.push(patientId); }
+    if (doctorId) { conditions.push('p.doctorId = ?'); params.push(doctorId); }
+    if (status) { conditions.push('p.status = ?'); params.push(status); }
+    sql += ' ' + conditions.join(' AND ');
+  }
+  
+  sql += ' ORDER BY p.date DESC, p.createdAt DESC';
+  
+  db.query(sql, params, (err, results) => {
+    if (err) return res.status(500).json({ message: 'Failed to fetch prescriptions' });
+    
+    // Fetch order lines for each prescription
+    const fetchOrderLines = results.map(prescription => {
+      return new Promise((resolve) => {
+        db.query(`
+          SELECT ol.*, m.name as medicineName, m.dosageForm, m.strength
+          FROM order_lines ol
+          LEFT JOIN medicines m ON ol.medicineId = m.id
+          WHERE ol.prescriptionId = ?
+        `, [prescription.id], (err, orderLines) => {
+          if (err) {
+            prescription.medications = [];
+          } else {
+            prescription.medications = orderLines;
+          }
+          resolve(prescription);
+        });
+      });
+    });
+    
+    Promise.all(fetchOrderLines).then(prescriptionsWithMedications => {
+      res.json(prescriptionsWithMedications);
+    });
+  });
+});
+
+app.get('/api/prescriptions/:id', (req, res) => {
+  const { id } = req.params;
+  
+  const sql = `
+    SELECT p.*, 
+           pt.name as patientName,
+           pt.idNumber as patientIdNumber,
+           pt.contactNumber as patientContact,
+           pt.email as patientEmail,
+           d.name as doctorName,
+           d.specialization,
+           d.department,
+           d.contactNumber as doctorContact,
+           u.name as createdByName
+    FROM prescriptions p
+    LEFT JOIN users pt ON p.patientId = pt.id
+    LEFT JOIN users d ON p.doctorId = d.id
+    LEFT JOIN users u ON p.createdBy = u.id
+    WHERE p.id = ?
+  `;
+  
+  db.query(sql, [id], (err, results) => {
+    if (err) return res.status(500).json({ message: 'Failed to fetch prescription' });
+    if (results.length === 0) return res.status(404).json({ message: 'Prescription not found' });
+    
+    const prescription = results[0];
+    
+    // Fetch order lines
+    db.query(`
+      SELECT ol.*, m.name as medicineName, m.dosageForm, m.strength
+      FROM order_lines ol
+      LEFT JOIN medicines m ON ol.medicineId = m.id
+      WHERE ol.prescriptionId = ?
+    `, [id], (err, orderLines) => {
+      if (err) {
+        prescription.medications = [];
+      } else {
+        prescription.medications = orderLines;
+      }
+      res.json(prescription);
+    });
+  });
+});
+
+app.post('/api/prescriptions', (req, res) => {
+  const { id, patientId, doctorId, date, status, notes, createdBy, medications } = req.body;
+  
+  if (!id || !patientId || !doctorId || !date || !createdBy) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  if (!medications || !Array.isArray(medications) || medications.length === 0) {
+    return res.status(400).json({ message: 'At least one medication is required' });
+  }
+  
+  const connection = mysql.createConnection(db.config);
+  
+  connection.beginTransaction((err) => {
+    if (err) return res.status(500).json({ message: 'Transaction failed' });
+    
+    // Insert prescription
+    const prescriptionSql = `
+      INSERT INTO prescriptions (id, patientId, doctorId, date, status, notes, createdBy)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    
+    connection.query(prescriptionSql, [id, patientId, doctorId, date, status || 'active', notes || '', createdBy], (err, results) => {
+      if (err) {
+        return connection.rollback(() => {
+          res.status(500).json({ message: 'Failed to create prescription' });
+        });
+      }
+      
+      // Insert order lines
+      const orderLinePromises = medications.map((medication, index) => {
+        return new Promise((resolve, reject) => {
+          const orderLineId = `order${Date.now()}${index}`;
+          const orderLineSql = `
+            INSERT INTO order_lines (id, prescriptionId, medicineId, dosage, frequency, duration, quantity, instructions)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `;
+          
+          connection.query(orderLineSql, [
+            orderLineId, id, medication.medicineId, medication.dosage, 
+            medication.frequency, medication.duration, medication.quantity, 
+            medication.instructions || ''
+          ], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      });
+      
+      Promise.all(orderLinePromises)
+        .then(() => {
+          connection.commit((err) => {
+            if (err) {
+              return connection.rollback(() => {
+                res.status(500).json({ message: 'Failed to commit transaction' });
+              });
+            }
+            
+            // Fetch the complete prescription with details
+            db.query(`
+              SELECT p.*, 
+                     pt.name as patientName,
+                     pt.idNumber as patientIdNumber,
+                     d.name as doctorName,
+                     u.name as createdByName
+              FROM prescriptions p
+              LEFT JOIN users pt ON p.patientId = pt.id
+              LEFT JOIN users d ON p.doctorId = d.id
+              LEFT JOIN users u ON p.createdBy = u.id
+              WHERE p.id = ?
+            `, [id], (err, prescriptionResults) => {
+              if (err) {
+                res.status(201).json({ id, message: 'Prescription created but failed to fetch details' });
+              } else {
+                const prescription = prescriptionResults[0];
+                
+                // Fetch order lines
+                db.query(`
+                  SELECT ol.*, m.name as medicineName, m.dosageForm, m.strength
+                  FROM order_lines ol
+                  LEFT JOIN medicines m ON ol.medicineId = m.id
+                  WHERE ol.prescriptionId = ?
+                `, [id], (err, orderLines) => {
+                  if (err) {
+                    prescription.medications = [];
+                  } else {
+                    prescription.medications = orderLines;
+                  }
+                  res.status(201).json(prescription);
+                });
+              }
+            });
+          });
+        })
+        .catch((error) => {
+          connection.rollback(() => {
+            res.status(500).json({ message: 'Failed to create order lines' });
+          });
+        });
+    });
+  });
+});
+
+app.put('/api/prescriptions/:id', (req, res) => {
+  const { id } = req.params;
+  const { patientId, doctorId, date, status, notes, medications } = req.body;
+  
+  if (!patientId || !doctorId || !date) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  if (!medications || !Array.isArray(medications) || medications.length === 0) {
+    return res.status(400).json({ message: 'At least one medication is required' });
+  }
+  
+  const connection = mysql.createConnection(db.config);
+  
+  connection.beginTransaction((err) => {
+    if (err) return res.status(500).json({ message: 'Transaction failed' });
+    
+    // Update prescription
+    const prescriptionSql = `
+      UPDATE prescriptions 
+      SET patientId = ?, doctorId = ?, date = ?, status = ?, notes = ?
+      WHERE id = ?
+    `;
+    
+    connection.query(prescriptionSql, [patientId, doctorId, date, status, notes || '', id], (err, results) => {
+      if (err) {
+        return connection.rollback(() => {
+          res.status(500).json({ message: 'Failed to update prescription' });
+        });
+      }
+      
+      if (results.affectedRows === 0) {
+        return connection.rollback(() => {
+          res.status(404).json({ message: 'Prescription not found' });
+        });
+      }
+      
+      // Delete existing order lines
+      connection.query('DELETE FROM order_lines WHERE prescriptionId = ?', [id], (err) => {
+        if (err) {
+          return connection.rollback(() => {
+            res.status(500).json({ message: 'Failed to remove existing medications' });
+          });
+        }
+        
+        // Insert updated order lines
+        const orderLinePromises = medications.map((medication, index) => {
+          return new Promise((resolve, reject) => {
+            const orderLineId = medication.id || `order${Date.now()}${index}`;
+            const orderLineSql = `
+              INSERT INTO order_lines (id, prescriptionId, medicineId, dosage, frequency, duration, quantity, instructions)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            
+            connection.query(orderLineSql, [
+              orderLineId, id, medication.medicineId, medication.dosage, 
+              medication.frequency, medication.duration, medication.quantity, 
+              medication.instructions || ''
+            ], (err) => {
+              if (err) reject(err);
+              else resolve();
+            });
+          });
+        });
+        
+        Promise.all(orderLinePromises)
+          .then(() => {
+            connection.commit((err) => {
+              if (err) {
+                return connection.rollback(() => {
+                  res.status(500).json({ message: 'Failed to commit transaction' });
+                });
+              }
+              
+              // Fetch the updated prescription
+              db.query(`
+                SELECT p.*, 
+                       pt.name as patientName,
+                       pt.idNumber as patientIdNumber,
+                       d.name as doctorName,
+                       u.name as createdByName
+                FROM prescriptions p
+                LEFT JOIN users pt ON p.patientId = pt.id
+                LEFT JOIN users d ON p.doctorId = d.id
+                LEFT JOIN users u ON p.createdBy = u.id
+                WHERE p.id = ?
+              `, [id], (err, prescriptionResults) => {
+                if (err) {
+                  res.json({ message: 'Prescription updated but failed to fetch details' });
+                } else {
+                  const prescription = prescriptionResults[0];
+                  
+                  // Fetch order lines
+                  db.query(`
+                    SELECT ol.*, m.name as medicineName, m.dosageForm, m.strength
+                    FROM order_lines ol
+                    LEFT JOIN medicines m ON ol.medicineId = m.id
+                    WHERE ol.prescriptionId = ?
+                  `, [id], (err, orderLines) => {
+                    if (err) {
+                      prescription.medications = [];
+                    } else {
+                      prescription.medications = orderLines;
+                    }
+                    res.json(prescription);
+                  });
+                }
+              });
+            });
+          })
+          .catch((error) => {
+            connection.rollback(() => {
+              res.status(500).json({ message: 'Failed to update medications' });
+            });
+          });
+      });
+    });
+  });
+});
+
+app.delete('/api/prescriptions/:id', (req, res) => {
+  const { id } = req.params;
+  
+  const connection = mysql.createConnection(db.config);
+  
+  connection.beginTransaction((err) => {
+    if (err) return res.status(500).json({ message: 'Transaction failed' });
+    
+    // Delete order lines first (due to foreign key constraint)
+    connection.query('DELETE FROM order_lines WHERE prescriptionId = ?', [id], (err) => {
+      if (err) {
+        return connection.rollback(() => {
+          res.status(500).json({ message: 'Failed to delete prescription medications' });
+        });
+      }
+      
+      // Delete prescription
+      connection.query('DELETE FROM prescriptions WHERE id = ?', [id], (err, results) => {
+        if (err) {
+          return connection.rollback(() => {
+            res.status(500).json({ message: 'Failed to delete prescription' });
+          });
+        }
+        
+        if (results.affectedRows === 0) {
+          return connection.rollback(() => {
+            res.status(404).json({ message: 'Prescription not found' });
+          });
+        }
+        
+        connection.commit((err) => {
+          if (err) {
+            return connection.rollback(() => {
+              res.status(500).json({ message: 'Failed to commit transaction' });
+            });
+          }
+          
+          res.json({ message: 'Prescription deleted successfully' });
+        });
+      });
+    });
   });
 });
 
