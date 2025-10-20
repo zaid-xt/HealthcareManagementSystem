@@ -13,6 +13,7 @@ import { useWardUpdates } from '../hooks/useWardUpdates';
 import { fetchPatients } from '../api/patientsApi';
 import { fetchAppointments } from '../api/appointmentsApi';
 import { fetchMedicalRecords } from '../api/medicalRecordsApi';
+import { prescriptionAPI, type Prescription } from '../api/prescriptionApi';
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -22,6 +23,7 @@ const DashboardPage: React.FC = () => {
   const [patients, setPatients] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
+  const [activePrescriptions, setActivePrescriptions] = useState<Prescription[]>([]);
   const [wardsLoading, setWardsLoading] = useState(true);
   const [patientsLoading, setPatientsLoading] = useState(true);
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
@@ -125,6 +127,22 @@ const DashboardPage: React.FC = () => {
         if (mounted) setMedicalRecordsError(e?.message || 'Failed to load medical records');
       } finally {
         if (mounted) setMedicalRecordsLoading(false);
+      }
+
+      try {
+        // Add prescriptions loading
+        let prescriptionsData;
+        if (user?.role === 'doctor') {
+          prescriptionsData = await prescriptionAPI.getPrescriptions({ doctorId: user.id, status: 'active' });
+        } else if (user?.role === 'patient') {
+          prescriptionsData = await prescriptionAPI.getPrescriptions({ patientId: user.id, status: 'active' });
+        } else {
+          prescriptionsData = await prescriptionAPI.getPrescriptions({ status: 'active' });
+        }
+        setActivePrescriptions(prescriptionsData);
+
+      } catch (error: any) {
+        console.error('Error loading dashboard data:', error);
       }
     };
 
@@ -457,31 +475,36 @@ const DashboardPage: React.FC = () => {
                   
                   <div className="mt-4 bg-white shadow overflow-hidden sm:rounded-md">
                     <ul className="divide-y divide-gray-200">
-                      {prescriptions.filter(p => p.status === 'active').length > 0 ? (
-                        prescriptions.filter(p => p.status === 'active').slice(0, 3).map((prescription) => {
-                          const patient = patients.find(p => p.id === prescription.patientId);
-                          const patientName = patient?.name || 'Unknown Patient';
-                          
-                          return (
-                            <li key={prescription.id}>
-                              <div className="px-4 py-4 sm:px-6 hover:bg-gray-50 transition-colors">
-                                <div className="flex items-center">
-                                  <div className="flex-shrink-0">
-                                    <Pill className="h-5 w-5 text-green-600" />
-                                  </div>
-                                  <div className="ml-4 flex-1">
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {patientName}
+                      {activePrescriptions.length > 0 ? (
+                        activePrescriptions.slice(0, 3).map((prescription) => (
+                          <li key={prescription.id}>
+                            <div className="px-4 py-4 sm:px-6 hover:bg-gray-50 transition-colors">
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                  <Pill className="h-5 w-5 text-green-600" />
+                                </div>
+                                <div className="ml-4 flex-1">
+                                  <div className="flex justify-between">
+                                    <div>
+                                      <div className="text-sm font-medium text-gray-900">
+                                        {prescription.patientName}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        ID: {prescription.patientIdNumber}
+                                      </div>
                                     </div>
                                     <div className="text-xs text-gray-500">
-                                      Prescribed on {new Date(prescription.date).toLocaleDateString()}
+                                      {new Date(prescription.date).toLocaleDateString()}
                                     </div>
+                                  </div>
+                                  <div className="mt-1 text-xs text-gray-600">
+                                    {prescription.medications?.length} medication(s)
                                   </div>
                                 </div>
                               </div>
-                            </li>
-                          );
-                        })
+                            </div>
+                          </li>
+                        ))
                       ) : (
                         <li>
                           <div className="px-4 py-5 sm:px-6 text-center text-gray-500">
