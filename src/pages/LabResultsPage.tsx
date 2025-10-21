@@ -22,6 +22,12 @@ const LabResultsPage: React.FC = () => {
   const [operationLoading, setOperationLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    status: '',
+    startDate: '',
+    endDate: ''
+  });
 
   // Load lab results on component mount
   useEffect(() => {
@@ -40,8 +46,26 @@ const LabResultsPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const results = await labResultsApi.getAll();
-      setLabs(results);
+      
+      // Fetch both lab results and patients
+      const [results, patientsData] = await Promise.all([
+        labResultsApi.getAll(),
+        fetch('http://localhost:5000/api/patients').then(res => res.json())
+      ]);
+
+      // Create a map of patients by ID for quick lookup
+      const patientsMap = new Map(patientsData.map((p: any) => [String(p.id), p]));
+
+      // Enhance lab results with patient data
+      const enhancedResults = results.map(lab => {
+        const patient = patientsMap.get(String(lab.patientId));
+        return {
+          ...lab,
+          patientIdNumber: patient?.idNumber || patient?.nationalId || ''
+        };
+      });
+
+      setLabs(enhancedResults);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load lab results');
     } finally {
@@ -96,9 +120,28 @@ const LabResultsPage: React.FC = () => {
     }
   };
 
+  // Update the filteredLabs constant
   const filteredLabs = labs.filter(lab => {
-    const searchString = `${lab.patientName || ''} ${lab.testType}`.toLowerCase();
-    return searchString.includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const searchFields = [
+      lab.patientName || '',
+      lab.testType || '',
+      lab.doctorName || '',
+      lab.results || '',
+      lab.patientIdNumber || ''
+    ];
+    const searchString = searchFields.join(' ').toLowerCase();
+    const matchesSearch = searchString.includes(searchLower);
+
+    // Status filter
+    const matchesStatus = !filters.status || lab.status === filters.status;
+
+    // Date filter
+    const labDate = new Date(lab.date).toISOString().split('T')[0];
+    const matchesStartDate = !filters.startDate || labDate >= filters.startDate;
+    const matchesEndDate = !filters.endDate || labDate <= filters.endDate;
+
+    return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate;
   });
 
   const getStatusColor = (status: Lab['status']) => {
@@ -116,9 +159,9 @@ const LabResultsPage: React.FC = () => {
 
   // Format ID number for display (add spaces for readability)
   const formatIdNumber = (idNumber: string) => {
-    if (!idNumber) return 'N/A';
-    // Format as XXX XXX XXX XXXX (South African ID format)
-    return idNumber.replace(/(\d{3})(\d{3})(\d{3})(\d{4})/, '$1 $2 $3 $4');
+    if (!idNumber) return '';
+    // Remove any existing spaces and return formatted
+    return `ID: ${idNumber.replace(/\s+/g, '')}`;
   };
 
   return (
@@ -206,7 +249,7 @@ const LabResultsPage: React.FC = () => {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input
                       type="search"
-                      placeholder="Search lab results..."
+                      placeholder="Search by patient name, test type, doctor name..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -215,10 +258,52 @@ const LabResultsPage: React.FC = () => {
                   <Button
                     variant="outline"
                     leftIcon={<Filter className="h-4 w-4" />}
+                    onClick={() => setShowFilters(prev => !prev)}
                   >
-                    Filter
+                    {showFilters ? 'Hide' : 'Show'} Filters
                   </Button>
                 </div>
+
+                {showFilters && (
+                  <div className="mb-6 p-4 bg-white rounded-lg shadow-md">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Status
+                        </label>
+                        <select
+                          value={filters.status}
+                          onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                          className="block w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">All</option>
+                          <option value="completed">Completed</option>
+                          <option value="pending">Pending</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Date Range
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="date"
+                            value={filters.startDate}
+                            onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                            className="block w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <input
+                            type="date"
+                            value={filters.endDate}
+                            onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                            className="block w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-white shadow-md rounded-lg overflow-hidden">
                   {loading ? (
@@ -260,6 +345,7 @@ const LabResultsPage: React.FC = () => {
                         const patientName = lab.patientName || 'Unknown Patient';
                         const doctorName = lab.doctorName || 'Unknown Doctor';
                         const patientInitials = patientName.split(' ').map(n => n[0]).join('').toUpperCase();
+                        const idNumber = lab.patientIdNumber || '';
                         
                         return (
                           <tr key={lab.id} className="hover:bg-gray-50">
@@ -275,7 +361,7 @@ const LabResultsPage: React.FC = () => {
                                     {patientName}
                                   </div>
                                   <div className="text-sm text-gray-500">
-                                    ID: {lab.patientIdNumber ? formatIdNumber(lab.patientIdNumber) : `DB ID: ${lab.patientId}`}
+                                    {idNumber && formatIdNumber(idNumber)}
                                   </div>
                                 </div>
                               </div>
